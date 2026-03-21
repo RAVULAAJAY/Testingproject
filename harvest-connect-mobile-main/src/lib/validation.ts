@@ -27,7 +27,6 @@ export interface FarmerSignupValidationInput {
   password: string;
   confirmPassword: string;
   phone: string;
-  otpVerified: boolean;
   address: string;
   farmLatitude: string;
   farmLongitude: string;
@@ -217,10 +216,6 @@ export const validateFarmerSignupForm = (formData: FarmerSignupValidationInput):
 
   const phoneError = validatePhone(formData.phone);
   if (phoneError) errors.push({ field: 'phone', message: phoneError });
-
-  if (!formData.otpVerified) {
-    errors.push({ field: 'otp', message: 'Verify phone number with OTP before continuing' });
-  }
 
   if (!formData.address.trim() || formData.address.trim().length < 10) {
     errors.push({ field: 'address', message: 'Address must be at least 10 characters' });

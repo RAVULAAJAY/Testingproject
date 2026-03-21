@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, Eye, EyeOff, AlertCircle, CheckCircle2, MapPin, Navigation, Send, Upload, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, AlertCircle, CheckCircle2, MapPin, Navigation, Upload, ShieldCheck } from 'lucide-react';
 import {
   validateSignupForm,
   validateLoginForm,
@@ -74,7 +74,6 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
     address: '',
     farmLatitude: '',
     farmLongitude: '',
-    otp: '',
     bankName: '',
     accountNumber: '',
     ifscCode: '',
@@ -91,10 +90,6 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
   const [isLocatingBuyer, setIsLocatingBuyer] = useState(false);
   const [idProofFileName, setIdProofFileName] = useState('');
   const [idProofFileSize, setIdProofFileSize] = useState(0);
-  const [isOtpSent, setIsOtpSent] = useState(false);
-  const [isOtpVerified, setIsOtpVerified] = useState(false);
-  const [generatedOtp, setGeneratedOtp] = useState('');
-  const [otpInfo, setOtpInfo] = useState('');
   const [isBuyerLocationGranted, setIsBuyerLocationGranted] = useState(false);
 
   const roleStyle = roleStyles[role];
@@ -121,19 +116,8 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
       setFieldErrors((prev) => ({ ...prev, [name]: '' }));
     }
 
-    if (name === 'phone') {
-      setIsOtpVerified(false);
-      setIsOtpSent(false);
-      setGeneratedOtp('');
-      setOtpInfo('');
-    }
-
     if (name === 'location') {
       setIsBuyerLocationGranted(false);
-    }
-
-    if (name === 'otp' && fieldErrors.otp) {
-      setFieldErrors((prev) => ({ ...prev, otp: '' }));
     }
 
     setGeneralError('');
@@ -259,39 +243,6 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
     }
   };
 
-  const handleSendOtp = () => {
-    const phone = formData.phone.trim();
-
-    if (!phone || !/^[0-9\s+()-]{7,}$/.test(phone)) {
-      setFieldError('phone', 'Enter a valid phone number to receive OTP');
-      return;
-    }
-
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    setGeneratedOtp(otp);
-    setIsOtpSent(true);
-    setIsOtpVerified(false);
-    setOtpInfo('OTP sent to your registered phone number.');
-    setFieldErrors((prev) => ({ ...prev, otp: '' }));
-  };
-
-  const handleVerifyOtp = () => {
-    if (!isOtpSent) {
-      setFieldError('otp', 'Send OTP before verifying');
-      return;
-    }
-
-    if (formData.otp.trim() === generatedOtp) {
-      setIsOtpVerified(true);
-      setOtpInfo('Phone number verified successfully.');
-      setFieldErrors((prev) => ({ ...prev, otp: '' }));
-      return;
-    }
-
-    setIsOtpVerified(false);
-    setFieldError('otp', 'Invalid OTP. Please try again.');
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -308,7 +259,6 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
                 password: formData.password,
                 confirmPassword: formData.confirmPassword,
                 phone: formData.phone,
-                otpVerified: isOtpVerified,
                 address: formData.address,
                 farmLatitude: formData.farmLatitude,
                 farmLongitude: formData.farmLongitude,
@@ -344,10 +294,6 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
 
       if (isBuyerSignup) {
         const signupErrors: Record<string, string> = {};
-
-        if (!isOtpVerified) {
-          signupErrors.otp = 'Verify phone number with OTP before continuing';
-        }
 
         if (!isBuyerLocationGranted) {
           signupErrors.location = 'Allow location access to enable nearby results.';
@@ -432,7 +378,7 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
                       ifscCode: formData.ifscCode.trim() || undefined,
                       bankAccountNumber: formData.accountNumber.trim() || undefined,
                       bankName: formData.bankName.trim() || undefined,
-                      phoneVerified: isOtpVerified,
+                      phoneVerified: true,
                     }
                   : existingUser?.farmerOnboarding,
               createdAt: existingUser?.createdAt ?? new Date().toISOString(),
@@ -636,49 +582,22 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
                   <div className="rounded-xl border bg-white p-4 md:p-6">
                     <div className="flex items-center gap-2 mb-4">
                       <ShieldCheck className="h-5 w-5 text-blue-600" />
-                      <h3 className="text-lg font-semibold text-gray-900">Phone Verification</h3>
+                      <h3 className="text-lg font-semibold text-gray-900">Contact Details</h3>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="phone">Phone Number</Label>
-                        <div className="flex gap-2">
-                          <Input
-                            id="phone"
-                            name="phone"
-                            type="tel"
-                            value={formData.phone}
-                            onChange={(e) => updateField('phone', e.target.value)}
-                            placeholder="Enter phone number"
-                            className={fieldErrors.phone ? 'border-red-500' : ''}
-                          />
-                          <Button type="button" variant="outline" onClick={handleSendOtp} className="shrink-0">
-                            <Send className="h-4 w-4 mr-1" />
-                            Send OTP
-                          </Button>
-                        </div>
+                        <Input
+                          id="phone"
+                          name="phone"
+                          type="tel"
+                          value={formData.phone}
+                          onChange={(e) => updateField('phone', e.target.value)}
+                          placeholder="Enter phone number"
+                          className={fieldErrors.phone ? 'border-red-500' : ''}
+                        />
                         {fieldErrors.phone && <p className="text-sm text-red-600">{fieldErrors.phone}</p>}
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="otp">OTP Verification</Label>
-                        <div className="flex gap-2">
-                          <Input
-                            id="otp"
-                            name="otp"
-                            value={formData.otp}
-                            onChange={(e) => updateField('otp', e.target.value)}
-                            placeholder="Enter 6-digit OTP"
-                            className={fieldErrors.otp ? 'border-red-500' : ''}
-                          />
-                          <Button type="button" variant="outline" onClick={handleVerifyOtp} className="shrink-0">
-                            Verify
-                          </Button>
-                        </div>
-                        {fieldErrors.otp && <p className="text-sm text-red-600">{fieldErrors.otp}</p>}
-                        {otpInfo && (
-                          <p className={`text-sm ${isOtpVerified ? 'text-emerald-600' : 'text-amber-700'}`}>{otpInfo}</p>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -733,46 +652,19 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
                       <h3 className="text-lg font-semibold text-gray-900">Verification & Contact</h3>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="phone">Phone Number</Label>
-                        <div className="flex gap-2">
-                          <Input
-                            id="phone"
-                            name="phone"
-                            type="tel"
-                            value={formData.phone}
-                            onChange={(e) => updateField('phone', e.target.value)}
-                            placeholder="Enter phone number"
-                            className={fieldErrors.phone ? 'border-red-500' : ''}
-                          />
-                          <Button type="button" variant="outline" onClick={handleSendOtp} className="shrink-0">
-                            <Send className="h-4 w-4 mr-1" />
-                            Send OTP
-                          </Button>
-                        </div>
+                        <Input
+                          id="phone"
+                          name="phone"
+                          type="tel"
+                          value={formData.phone}
+                          onChange={(e) => updateField('phone', e.target.value)}
+                          placeholder="Enter phone number"
+                          className={fieldErrors.phone ? 'border-red-500' : ''}
+                        />
                         {fieldErrors.phone && <p className="text-sm text-red-600">{fieldErrors.phone}</p>}
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="otp">OTP Verification</Label>
-                        <div className="flex gap-2">
-                          <Input
-                            id="otp"
-                            name="otp"
-                            value={formData.otp}
-                            onChange={(e) => updateField('otp', e.target.value)}
-                            placeholder="Enter 6-digit OTP"
-                            className={fieldErrors.otp ? 'border-red-500' : ''}
-                          />
-                          <Button type="button" variant="outline" onClick={handleVerifyOtp} className="shrink-0">
-                            Verify
-                          </Button>
-                        </div>
-                        {fieldErrors.otp && <p className="text-sm text-red-600">{fieldErrors.otp}</p>}
-                        {otpInfo && (
-                          <p className={`text-sm ${isOtpVerified ? 'text-emerald-600' : 'text-amber-700'}`}>{otpInfo}</p>
-                        )}
                       </div>
                     </div>
                   </div>
