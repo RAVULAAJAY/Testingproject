@@ -18,6 +18,7 @@ interface ProductListProps {
   onEdit?: (product: Product) => void;
   onDelete?: (productId: string) => void;
   onView?: (product: Product) => void;
+  onUpdateStock?: (productId: string, stock: number) => void;
   onAddNew?: () => void;
   isFarmerView?: boolean;
   allowActions?: boolean;
@@ -28,10 +29,12 @@ const ProductList: React.FC<ProductListProps> = ({
   onEdit,
   onDelete,
   onView,
+  onUpdateStock,
   onAddNew,
   isFarmerView = true,
   allowActions = true
 }) => {
+  const getStock = (product: Product) => product.stock ?? product.quantity;
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
   const [sortBy, setSortBy] = useState('latest');
@@ -42,6 +45,7 @@ const ProductList: React.FC<ProductListProps> = ({
     { value: 'fruits', label: 'Fruits' },
     { value: 'grains', label: 'Grains' },
     { value: 'dairy', label: 'Dairy' },
+    { value: 'milk', label: 'Milk' },
     { value: 'meat', label: 'Meat & Poultry' },
     { value: 'honey', label: 'Honey & Spices' },
     { value: 'organic', label: 'Organic Products' }
@@ -83,7 +87,7 @@ const ProductList: React.FC<ProductListProps> = ({
         filtered.sort((a, b) => b.price - a.price);
         break;
       case 'quantity':
-        filtered.sort((a, b) => b.quantity - a.quantity);
+        filtered.sort((a, b) => getStock(b) - getStock(a));
         break;
       case 'latest':
       default:
@@ -196,6 +200,7 @@ const ProductList: React.FC<ProductListProps> = ({
                 onEdit={onEdit}
                 onDelete={onDelete}
                 onView={onView}
+                onUpdateStock={onUpdateStock}
                 isFarmerView={isFarmerView}
               />
             ))}
@@ -234,7 +239,7 @@ const ProductList: React.FC<ProductListProps> = ({
                 Total Value: ₹
                 {(
                   filteredAndSortedProducts.reduce(
-                    (sum, p) => sum + p.price * p.quantity,
+                    (sum, p) => sum + p.price * getStock(p),
                     0
                   )
                 ).toFixed(2)}

@@ -1,15 +1,45 @@
-import React, { createContext, useCallback, useContext, useState, ReactNode } from 'react';
+﻿import React, { createContext, useCallback, useContext, useEffect, useState, ReactNode } from 'react';
 import {
-  dummyUsers,
-  dummyProducts,
-  dummyOrders,
   Product,
   Order,
-  User as SeedUser,
 } from '@/lib/data';
 
 export type UserRole = 'farmer' | 'buyer' | 'admin';
 export type AuthMode = 'login' | 'signup' | null;
+
+export interface FarmerPaymentDetails {
+  bankName: string;
+  accountNumber: string;
+  ifscOrUpi: string;
+}
+
+export interface ActivityLog {
+  id: string;
+  userId: string;
+  userName: string;
+  userRole: UserRole;
+  action: string;
+  targetType?: 'user' | 'product' | 'order' | 'message' | 'auth';
+  targetId?: string;
+  details?: string;
+  timestamp: string;
+}
+
+export interface FarmerLocation {
+  latitude: number;
+  longitude: number;
+}
+
+export interface FarmerOnboardingDetails {
+  address: string;
+  farmLocation: FarmerLocation;
+  idProofFileName: string;
+  upiId?: string;
+  ifscCode?: string;
+  bankAccountNumber?: string;
+  bankName?: string;
+  phoneVerified: boolean;
+}
 
 export interface User {
   id: string;
@@ -18,17 +48,28 @@ export interface User {
   phone: string;
   location: string;
   role: UserRole;
+  isActive?: boolean;
+  lastLoginAt?: string;
+  loginCount?: number;
+  farmName?: string;
+  cropTypes?: string[];
+  paymentDetails?: FarmerPaymentDetails;
+  farmDetails?: string;
+  farmerOnboarding?: FarmerOnboardingDetails;
   createdAt?: string;
 }
 
-const toAppUser = (user: SeedUser): User => ({
-  id: user.id,
-  name: user.name,
-  email: user.email,
-  phone: user.phone ?? '',
-  location: user.location,
-  role: user.role,
-});
+const defaultAdminUser: User = {
+  id: 'admin_primary',
+  name: 'Platform Admin',
+  email: 'admin@platform.local',
+  phone: '',
+  location: 'HQ',
+  role: 'admin',
+  isActive: true,
+  loginCount: 0,
+  createdAt: new Date().toISOString(),
+};
 
 const isUserRole = (value: unknown): value is UserRole => {
   return value === 'farmer' || value === 'buyer' || value === 'admin';
@@ -59,6 +100,26 @@ const readStoredValue = <T,>(key: string): T | null => {
   }
 };
 
+const normalizeStockValue = (value: unknown): number => {
+  const parsed = Number(value);
+  if (Number.isNaN(parsed)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.floor(parsed));
+};
+
+const normalizeProduct = (product: Product): Product => {
+  const stock = normalizeStockValue((product as Partial<Product>).stock ?? product.quantity);
+
+  return {
+    ...product,
+    stock,
+    quantity: stock,
+    available: stock > 0,
+  };
+};
+
 export interface Message {
   id: string;
   senderId: string;
@@ -69,6 +130,46 @@ export interface Message {
   timestamp: string;
   read: boolean;
 }
+
+export interface OrderDeliveryInput {
+  option: 'pickup' | 'delivery';
+  deliveryAddress?: string;
+  pickupLocation?: string;
+}
+
+export type CheckoutPaymentMethod = 'upi' | 'card' | 'cod';
+
+export interface CartItem {
+  productId: string;
+  quantity: number;
+}
+
+export interface CheckoutInput {
+  deliveryAddress: string;
+  contactPhone: string;
+  paymentMethod: CheckoutPaymentMethod;
+}
+
+const normalizeOrder = (order: Order): Order => {
+  const deliveryOption = order.deliveryOption ?? 'delivery';
+  const deliveryStatus =
+    order.deliveryStatus ??
+    (order.status === 'delivered'
+      ? 'delivered'
+      : order.status === 'cancelled'
+      ? 'cancelled'
+      : deliveryOption === 'pickup'
+      ? 'ready-for-pickup'
+      : order.status === 'shipped'
+      ? 'out-for-delivery'
+      : 'pending');
+
+  return {
+    ...order,
+    deliveryOption,
+    deliveryStatus,
+  };
+};
 
 export type NotificationType = 'order' | 'message' | 'update';
 
@@ -85,38 +186,7 @@ export interface AppNotification {
 
 const defaultNotifications: AppNotification[] = [];
 
-const defaultMessages: Message[] = [
-  {
-    id: 'message_1',
-    senderId: '1',
-    senderName: 'Rajesh Kumar',
-    recipientId: '2',
-    recipientName: 'Priya Sharma',
-    content: 'Fresh tomatoes are ready for pickup this afternoon.',
-    timestamp: '2024-03-18T09:30:00.000Z',
-    read: true,
-  },
-  {
-    id: 'message_2',
-    senderId: '2',
-    senderName: 'Priya Sharma',
-    recipientId: '1',
-    recipientName: 'Rajesh Kumar',
-    content: 'Great. Please keep 5 kg aside for me.',
-    timestamp: '2024-03-18T09:34:00.000Z',
-    read: true,
-  },
-  {
-    id: 'message_3',
-    senderId: '3',
-    senderName: 'Amit Singh',
-    recipientId: '4',
-    recipientName: 'Sneha Patel',
-    content: 'Carrots are packed and ready for tomorrow morning delivery.',
-    timestamp: '2024-03-19T11:00:00.000Z',
-    read: false,
-  },
-];
+const defaultMessages: Message[] = [];
 
 export interface GlobalStateContextType {
   // Auth
@@ -128,9 +198,11 @@ export interface GlobalStateContextType {
   logout: () => void;
   setCurrentUser: (user: User | null) => void;
   setSelectedRole: (role: UserRole | null) => void;
+  upsertUser: (user: User) => void;
   updateUser: (userId: string, updates: Partial<User>) => void;
   deleteUser: (userId: string) => void;
   blockUser: (userId: string) => void;
+  enableUser: (userId: string) => void;
 
   // Products
   products: Product[];
@@ -144,7 +216,13 @@ export interface GlobalStateContextType {
   favoriteProductIds: string[];
   toggleFavoriteProduct: (productId: string) => void;
   isFavoriteProduct: (productId: string) => boolean;
-  placeOrder: (product: Product, quantity: number) => void;
+  cartItems: CartItem[];
+  addToCart: (productId: string, quantity?: number) => void;
+  updateCartItemQuantity: (productId: string, quantity: number) => void;
+  removeFromCart: (productId: string) => void;
+  clearCart: () => void;
+  checkoutCart: (checkout: CheckoutInput) => { success: boolean; createdOrderIds: string[]; message: string };
+  placeOrder: (product: Product, quantity: number, deliveryInput?: OrderDeliveryInput) => void;
 
   // Orders
   orders: Order[];
@@ -165,6 +243,10 @@ export interface GlobalStateContextType {
 
   // Notifications
   notifications: AppNotification[];
+    // Activity logs
+    activityLogs: ActivityLog[];
+    addActivityLog: (log: Omit<ActivityLog, 'id' | 'timestamp'> & { id?: string; timestamp?: string }) => void;
+    getActivityLogsByUser: (userId: string) => ActivityLog[];
   addNotification: (notification: AppNotification) => void;
   getNotificationsByUser: (userId: string) => AppNotification[];
   markNotificationAsRead: (notificationId: string) => void;
@@ -214,22 +296,27 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({
 
   const [products, setProducts] = useState<Product[]>(() => {
     const savedProducts = readStoredValue<Product[]>('products');
-    return savedProducts ?? dummyProducts;
+    return (savedProducts ?? []).map(normalizeProduct);
   });
 
   const [users, setUsers] = useState<User[]>(() => {
     const savedUsers = readStoredValue<User[]>('users');
-    return savedUsers ?? dummyUsers.map(toAppUser);
+    return savedUsers ?? [defaultAdminUser];
   });
 
   const [orders, setOrders] = useState<Order[]>(() => {
     const savedOrders = readStoredValue<Order[]>('orders');
-    return savedOrders ?? dummyOrders;
+    return (savedOrders ?? []).map(normalizeOrder);
   });
 
   const [messages, setMessages] = useState<Message[]>(() => {
     const savedMessages = readStoredValue<Message[]>('messages');
     return savedMessages ?? defaultMessages;
+  });
+
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>(() => {
+    const savedActivityLogs = readStoredValue<ActivityLog[]>('activityLogs');
+    return savedActivityLogs ?? [];
   });
 
   const [notifications, setNotifications] = useState<AppNotification[]>(() => {
@@ -241,6 +328,108 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({
     const savedFavorites = readStoredValue<string[]>('favoriteProductIds');
     return savedFavorites ?? [];
   });
+
+  const [cartItems, setCartItems] = useState<CartItem[]>(() => {
+    const savedCart = readStoredValue<CartItem[]>('cartItems');
+    return savedCart ?? [];
+  });
+
+  const notifyAdmins = useCallback((
+    title: string,
+    messageBuilder: (adminUserId: string, index: number) => string,
+    actionUrl: string,
+    idPrefix: string
+  ) => {
+    const adminUsers = users.filter((existingUser) => existingUser.role === 'admin');
+    if (adminUsers.length === 0) {
+      return;
+    }
+
+    setNotifications((prev) => {
+      const timestamp = new Date().toISOString();
+      const adminNotifications: AppNotification[] = adminUsers.map((adminUser, index) => ({
+        id: `${idPrefix}_${Date.now()}_${adminUser.id}_${index}`,
+        userId: adminUser.id,
+        type: 'update',
+        title,
+        message: messageBuilder(adminUser.id, index),
+        timestamp,
+        read: false,
+        actionUrl,
+      }));
+
+      const updated = [...adminNotifications, ...prev];
+      localStorage.setItem('notifications', JSON.stringify(updated));
+      return updated;
+    });
+  }, [users]);
+
+  useEffect(() => {
+    const handleStorage = (event: StorageEvent) => {
+      if (!event.key) {
+        return;
+      }
+
+      if (event.key === 'products') {
+        const nextProducts = readStoredValue<Product[]>('products') ?? [];
+        setProducts(nextProducts.map(normalizeProduct));
+        return;
+      }
+
+      if (event.key === 'orders') {
+        const nextOrders = readStoredValue<Order[]>('orders') ?? [];
+        setOrders(nextOrders.map(normalizeOrder));
+        return;
+      }
+
+      if (event.key === 'messages') {
+        const nextMessages = readStoredValue<Message[]>('messages') ?? [];
+        setMessages(nextMessages);
+        return;
+      }
+
+      if (event.key === 'notifications') {
+
+              if (event.key === 'activityLogs') {
+                const nextActivityLogs = readStoredValue<ActivityLog[]>('activityLogs') ?? [];
+                setActivityLogs(nextActivityLogs);
+                return;
+              }
+        const nextNotifications = readStoredValue<AppNotification[]>('notifications') ?? [];
+        setNotifications(nextNotifications);
+        return;
+      }
+
+      if (event.key === 'users') {
+        const nextUsers = readStoredValue<User[]>('users') ?? [];
+        setUsers(nextUsers);
+
+        setCurrentUserState((prev) => {
+          if (!prev) {
+            return prev;
+          }
+
+          const refreshedUser = nextUsers.find((entry) => entry.id === prev.id);
+          return refreshedUser ?? prev;
+        });
+        return;
+      }
+
+      if (event.key === 'favoriteProductIds') {
+        const nextFavorites = readStoredValue<string[]>('favoriteProductIds') ?? [];
+        setFavoriteProductIds(nextFavorites);
+        return;
+      }
+
+      if (event.key === 'cartItems') {
+        const nextCart = readStoredValue<CartItem[]>('cartItems') ?? [];
+        setCartItems(nextCart);
+      }
+    };
+
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
 
   const setCurrentUser = useCallback((user: User | null) => {
     setCurrentUserState(user);
@@ -269,25 +458,130 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({
     localStorage.removeItem('selectedRole');
   }, []);
 
+  const addActivityLog = useCallback((log: Omit<ActivityLog, 'id' | 'timestamp'> & { id?: string; timestamp?: string }) => {
+    setActivityLogs((prev) => {
+      const nextLog: ActivityLog = {
+        id: log.id ?? `activity_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+        timestamp: log.timestamp ?? new Date().toISOString(),
+        userId: log.userId,
+        userName: log.userName,
+        userRole: log.userRole,
+        action: log.action,
+        targetType: log.targetType,
+        targetId: log.targetId,
+        details: log.details,
+      };
+
+      const updated = [nextLog, ...prev].slice(0, 500);
+      localStorage.setItem('activityLogs', JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
+  const addNotification = useCallback((notification: AppNotification) => {
+    setNotifications((prev) => {
+      const updated = [notification, ...prev];
+      localStorage.setItem('notifications', JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
+  const upsertUser = useCallback((user: User) => {
+    const alreadyExists = users.some((entry) => entry.id === user.id);
+
+    setUsers((prev) => {
+      const existingIndex = prev.findIndex((entry) => entry.id === user.id);
+      const mergedUsers =
+        existingIndex >= 0
+          ? prev.map((entry) => (entry.id === user.id ? { ...entry, ...user } : entry))
+          : [user, ...prev];
+
+      localStorage.setItem('users', JSON.stringify(mergedUsers));
+      return mergedUsers;
+    });
+
+    localStorage.setItem(`user_${user.id}`, JSON.stringify(user));
+
+    if (!alreadyExists) {
+      const targetTab = user.role === 'farmer' ? 'farmers' : user.role === 'buyer' ? 'buyers' : 'overview';
+      notifyAdmins(
+        `New ${user.role} registered`,
+        () => `${user.name} has joined as a ${user.role}.`,
+        `/admin/dashboard?tab=${targetTab}`,
+        `notification_new_${user.role}`
+      );
+
+      addActivityLog({
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        action: 'registered account',
+        targetType: 'auth',
+        targetId: user.id,
+        details: `${user.role} account created`,
+      });
+    }
+  }, [addActivityLog, notifyAdmins, users]);
+
   const login = useCallback((user: User) => {
-    setCurrentUser(user);
-  }, [setCurrentUser]);
+    const existingUser = users.find((entry) => entry.id === user.id);
+    if (existingUser && existingUser.isActive === false) {
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const nextUser: User = {
+      ...user,
+      isActive: user.isActive ?? true,
+      lastLoginAt: now,
+      loginCount: (user.loginCount ?? 0) + 1,
+    };
+
+    upsertUser(nextUser);
+    setCurrentUser(nextUser);
+
+    addActivityLog({
+      userId: nextUser.id,
+      userName: nextUser.name,
+      userRole: nextUser.role,
+      action: 'logged in',
+      targetType: 'auth',
+      targetId: nextUser.id,
+      details: `Login count: ${nextUser.loginCount ?? 1}`,
+    });
+  }, [addActivityLog, setCurrentUser, upsertUser, users]);
 
   const signup = useCallback((user: User) => {
     const userWithTimestamp = {
       ...user,
+      isActive: user.isActive ?? true,
+      loginCount: user.loginCount ?? 0,
       createdAt: new Date().toISOString(),
     };
 
+    upsertUser(userWithTimestamp);
     setCurrentUser(userWithTimestamp);
-  }, [setCurrentUser]);
+  }, [setCurrentUser, upsertUser]);
 
   const logout = useCallback(() => {
+    if (currentUser) {
+      addActivityLog({
+        userId: currentUser.id,
+        userName: currentUser.name,
+        userRole: currentUser.role,
+        action: 'logged out',
+        targetType: 'auth',
+        targetId: currentUser.id,
+      });
+    }
+
     setCurrentUserState(null);
     setSelectedRoleState(null);
     localStorage.removeItem('currentUser');
     localStorage.removeItem('selectedRole');
-  }, []);
+    setCartItems([]);
+    localStorage.setItem('cartItems', JSON.stringify([]));
+  }, [addActivityLog, currentUser]);
 
   const updateUser = useCallback((userId: string, updates: Partial<User>) => {
     setUsers((prev) => {
@@ -307,14 +601,6 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({
       localStorage.setItem('currentUser', JSON.stringify(nextUser));
       localStorage.setItem(`user_${userId}`, JSON.stringify(nextUser));
       return nextUser;
-    });
-  }, []);
-
-  const addNotification = useCallback((notification: AppNotification) => {
-    setNotifications((prev) => {
-      const updated = [notification, ...prev];
-      localStorage.setItem('notifications', JSON.stringify(updated));
-      return updated;
     });
   }, []);
 
@@ -361,26 +647,89 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({
   }, [currentUser]);
 
   const deleteUser = useCallback((userId: string) => {
+        const removedUser = users.find((entry) => entry.id === userId);
+        if (currentUser && removedUser) {
+          addActivityLog({
+            userId: currentUser.id,
+            userName: currentUser.name,
+            userRole: currentUser.role,
+            action: 'deleted user',
+            targetType: 'user',
+            targetId: removedUser.id,
+            details: `${removedUser.name} (${removedUser.role})`,
+          });
+        }
     removeUserFromState(userId);
-  }, [removeUserFromState]);
+  }, [addActivityLog, currentUser, removeUserFromState, users]);
 
   const blockUser = useCallback((userId: string) => {
-    removeUserFromState(userId);
-  }, [removeUserFromState]);
+        const blockedUser = users.find((entry) => entry.id === userId);
+        if (currentUser && blockedUser) {
+          addActivityLog({
+            userId: currentUser.id,
+            userName: currentUser.name,
+            userRole: currentUser.role,
+            action: 'disabled user',
+            targetType: 'user',
+            targetId: blockedUser.id,
+            details: `${blockedUser.name} (${blockedUser.role})`,
+          });
+        }
+    updateUser(userId, { isActive: false });
+
+    if (currentUser?.id === userId) {
+      setCurrentUserState(null);
+      setSelectedRoleState(null);
+      localStorage.removeItem('currentUser');
+      localStorage.removeItem('selectedRole');
+    }
+  }, [addActivityLog, currentUser, updateUser, users]);
+
+  const enableUser = useCallback((userId: string) => {
+        const enabledUser = users.find((entry) => entry.id === userId);
+        if (currentUser && enabledUser) {
+          addActivityLog({
+            userId: currentUser.id,
+            userName: currentUser.name,
+            userRole: currentUser.role,
+            action: 'enabled user',
+            targetType: 'user',
+            targetId: enabledUser.id,
+            details: `${enabledUser.name} (${enabledUser.role})`,
+          });
+        }
+    updateUser(userId, { isActive: true });
+  }, [addActivityLog, currentUser, updateUser, users]);
 
   // Product operations
   const addProduct = useCallback((product: Product) => {
+        addActivityLog({
+          userId: product.farmerId,
+          userName: product.farmerName,
+          userRole: 'farmer',
+          action: 'uploaded product',
+          targetType: 'product',
+          targetId: product.id,
+          details: product.name,
+        });
     setProducts((prev) => {
-      const updated = [...prev, product];
+      const updated = [...prev, normalizeProduct(product)];
       localStorage.setItem('products', JSON.stringify(updated));
       return updated;
     });
-  }, []);
+
+    notifyAdmins(
+      'New product uploaded',
+      () => `${product.farmerName} uploaded a new product: ${product.name}.`,
+      '/admin/dashboard?tab=products',
+      'notification_new_product'
+    );
+  }, [addActivityLog, notifyAdmins]);
 
   const updateProduct = useCallback((id: string, updates: Partial<Product>) => {
     setProducts((prev) => {
       const updated = prev.map((p) =>
-        p.id === id ? { ...p, ...updates } : p
+        p.id === id ? normalizeProduct({ ...p, ...updates }) : p
       );
       localStorage.setItem('products', JSON.stringify(updated));
       return updated;
@@ -420,26 +769,109 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({
     [favoriteProductIds]
   );
 
+  const addToCart = useCallback((productId: string, quantity = 1) => {
+    setCartItems((prev) => {
+      const safeQuantity = Math.max(1, Math.floor(quantity));
+      const existing = prev.find((item) => item.productId === productId);
+
+      const updated = existing
+        ? prev.map((item) =>
+            item.productId === productId
+              ? { ...item, quantity: item.quantity + safeQuantity }
+              : item
+          )
+        : [...prev, { productId, quantity: safeQuantity }];
+
+      localStorage.setItem('cartItems', JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
+  const updateCartItemQuantity = useCallback((productId: string, quantity: number) => {
+    setCartItems((prev) => {
+      const safeQuantity = Math.max(0, Math.floor(quantity));
+      const updated =
+        safeQuantity === 0
+          ? prev.filter((item) => item.productId !== productId)
+          : prev.map((item) =>
+              item.productId === productId ? { ...item, quantity: safeQuantity } : item
+            );
+
+      localStorage.setItem('cartItems', JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
+  const removeFromCart = useCallback((productId: string) => {
+    setCartItems((prev) => {
+      const updated = prev.filter((item) => item.productId !== productId);
+      localStorage.setItem('cartItems', JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
+  const clearCart = useCallback(() => {
+    setCartItems([]);
+    localStorage.setItem('cartItems', JSON.stringify([]));
+  }, []);
+
   const placeOrder = useCallback(
-    (product: Product, quantity: number) => {
+    (product: Product, quantity: number, deliveryInput?: OrderDeliveryInput) => {
       if (!currentUser) {
         return;
       }
 
-      const safeQuantity = Math.max(1, Math.min(quantity, product.quantity || 1));
+      const productInState = products.find((item) => item.id === product.id);
+      if (!productInState) {
+        return;
+      }
+
+      const availableStock = normalizeStockValue(productInState.stock ?? productInState.quantity);
+      if (availableStock <= 0) {
+        return;
+      }
+
+      const safeQuantity = Math.max(1, Math.min(quantity, availableStock));
+      const deliveryOption = deliveryInput?.option ?? 'delivery';
+
       const order: Order = {
         id: `order_${Date.now()}`,
         buyerId: currentUser.id,
-        farmerId: product.farmerId,
-        productId: product.id,
-        productName: product.name,
+        farmerId: productInState.farmerId,
+        productId: productInState.id,
+        productName: productInState.name,
         quantity: safeQuantity,
-        totalPrice: product.price * safeQuantity,
+        totalPrice: productInState.price * safeQuantity,
+        deliveryOption,
+        deliveryStatus: deliveryOption === 'pickup' ? 'ready-for-pickup' : 'pending',
+        deliveryAddress: deliveryOption === 'delivery' ? deliveryInput?.deliveryAddress?.trim() : undefined,
+        pickupLocation: deliveryOption === 'pickup' ? deliveryInput?.pickupLocation?.trim() : undefined,
         status: 'pending',
         orderDate: new Date().toISOString().split('T')[0],
         buyerName: currentUser.name,
-        farmerName: product.farmerName,
+        farmerName: productInState.farmerName,
       };
+
+      setProducts((prev) => {
+        const updated = prev.map((item) => {
+          if (item.id !== productInState.id) {
+            return item;
+          }
+
+          const currentStock = normalizeStockValue(item.stock ?? item.quantity);
+          const nextStock = Math.max(0, currentStock - safeQuantity);
+
+          return normalizeProduct({
+            ...item,
+            stock: nextStock,
+            quantity: nextStock,
+            available: nextStock > 0,
+          });
+        });
+
+        localStorage.setItem('products', JSON.stringify(updated));
+        return updated;
+      });
 
       setOrders((prev) => {
         const updated = [...prev, order];
@@ -453,7 +885,7 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({
         userId: currentUser.id,
         type: 'order',
         title: 'Order placed successfully',
-        message: `Your order for ${product.name} was placed successfully and is now pending approval.`,
+        message: `Your ${deliveryOption} order for ${productInState.name} was placed successfully and is now pending approval.`,
         timestamp: notificationTimestamp,
         read: false,
         actionUrl: '/orders',
@@ -461,41 +893,108 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({
 
       const farmerNotification: AppNotification = {
         id: `notification_${Date.now()}_farmer`,
-        userId: product.farmerId,
+        userId: productInState.farmerId,
         type: 'order',
         title: 'New order received',
-        message: `${currentUser.name} ordered ${safeQuantity} ${product.unit} of ${product.name}.`,
+        message: `${currentUser.name} placed a ${deliveryOption} order for ${safeQuantity} ${productInState.unit} of ${productInState.name}.`,
         timestamp: notificationTimestamp,
         read: false,
         actionUrl: '/orders',
       };
 
       addNotification(farmerNotification);
-      if (currentUser.id !== product.farmerId) {
+      if (currentUser.id !== productInState.farmerId) {
         addNotification(buyerNotification);
       }
     },
-    [addNotification, currentUser]
+    [addNotification, currentUser, products]
+  );
+
+  const checkoutCart = useCallback(
+    (checkout: CheckoutInput) => {
+      if (!currentUser) {
+        return { success: false, createdOrderIds: [], message: 'Please log in to checkout.' };
+      }
+
+      if (currentUser.role !== 'buyer') {
+        return { success: false, createdOrderIds: [], message: 'Only buyers can checkout.' };
+      }
+
+      if (cartItems.length === 0) {
+        return { success: false, createdOrderIds: [], message: 'Cart is empty.' };
+      }
+
+      if (!checkout.deliveryAddress.trim() || !checkout.contactPhone.trim()) {
+        return { success: false, createdOrderIds: [], message: 'Delivery address and phone are required.' };
+      }
+
+      const createdOrderIds: string[] = [];
+      cartItems.forEach((item) => {
+        const product = products.find((entry) => entry.id === item.productId);
+        if (!product) {
+          return;
+        }
+
+        placeOrder(product, item.quantity, {
+          option: 'delivery',
+          deliveryAddress: checkout.deliveryAddress.trim(),
+        });
+        createdOrderIds.push(product.id);
+      });
+
+      clearCart();
+
+      addNotification({
+        id: `notification_checkout_${Date.now()}`,
+        userId: currentUser.id,
+        type: 'order',
+        title: 'Checkout confirmed',
+        message: `Order confirmed with ${checkout.paymentMethod.toUpperCase()} payment.`,
+        timestamp: new Date().toISOString(),
+        read: false,
+        actionUrl: '/orders',
+      });
+
+      return {
+        success: true,
+        createdOrderIds,
+        message: 'Order confirmed successfully.',
+      };
+    },
+    [addNotification, cartItems, clearCart, currentUser, placeOrder, products]
   );
 
   // Order operations
   const addOrder = useCallback((order: Order) => {
     setOrders((prev) => {
-      const updated = [...prev, order];
+      const updated = [...prev, normalizeOrder(order)];
       localStorage.setItem('orders', JSON.stringify(updated));
       return updated;
     });
   }, []);
 
   const updateOrder = useCallback((id: string, updates: Partial<Order>) => {
+        const existingOrder = orders.find((order) => order.id === id);
+
+        if (currentUser && existingOrder && (updates.status || updates.deliveryStatus)) {
+          addActivityLog({
+            userId: currentUser.id,
+            userName: currentUser.name,
+            userRole: currentUser.role,
+            action: 'updated order status',
+            targetType: 'order',
+            targetId: id,
+            details: `${existingOrder.productName}: ${updates.status ?? existingOrder.status}`,
+          });
+        }
     setOrders((prev) => {
       const updated = prev.map((o) =>
-        o.id === id ? { ...o, ...updates } : o
+        o.id === id ? normalizeOrder({ ...o, ...updates }) : o
       );
       localStorage.setItem('orders', JSON.stringify(updated));
       return updated;
     });
-  }, []);
+  }, [addActivityLog, currentUser, orders]);
 
   const deleteOrder = useCallback((id: string) => {
     setOrders((prev) => {
@@ -522,6 +1021,16 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({
 
   // Message operations
   const addMessage = useCallback((message: Message) => {
+        const sender = users.find((entry) => entry.id === message.senderId);
+        addActivityLog({
+          userId: message.senderId,
+          userName: sender?.name ?? message.senderName,
+          userRole: sender?.role ?? 'buyer',
+          action: 'sent message',
+          targetType: 'message',
+          targetId: message.id,
+          details: `To ${message.recipientName}`,
+        });
     setMessages((prev) => {
       const updated = [...prev, message];
       localStorage.setItem('messages', JSON.stringify(updated));
@@ -538,7 +1047,7 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({
       read: false,
       actionUrl: '/messages',
     });
-  }, [addNotification]);
+  }, [addActivityLog, addNotification, users]);
 
   const getMessagesByUser = useCallback(
     (userId: string) =>
@@ -610,6 +1119,11 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({
     [notifications]
   );
 
+  const getActivityLogsByUser = useCallback(
+    (userId: string) => activityLogs.filter((log) => log.userId === userId),
+    [activityLogs]
+  );
+
   // Statistics
   const getTotalSpentByBuyer = useCallback(
     (buyerId: string) =>
@@ -638,6 +1152,10 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({
   );
 
   const value: GlobalStateContextType = {
+      // Activity logs
+      activityLogs,
+      addActivityLog,
+      getActivityLogsByUser,
     // Auth
     currentUser,
     selectedRole,
@@ -647,9 +1165,11 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({
     logout,
     setCurrentUser,
     setSelectedRole,
+    upsertUser,
     updateUser,
     deleteUser,
     blockUser,
+    enableUser,
 
     // Products
     products,
@@ -663,6 +1183,12 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({
     favoriteProductIds,
     toggleFavoriteProduct,
     isFavoriteProduct,
+    cartItems,
+    addToCart,
+    updateCartItemQuantity,
+    removeFromCart,
+    clearCart,
+    checkoutCart,
     placeOrder,
 
     // Orders

@@ -17,7 +17,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { X, MapPin, DollarSign, Layers } from 'lucide-react';
+import { X, MapPin, DollarSign, Layers, Navigation } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 
 export interface FilterState {
@@ -25,6 +25,7 @@ export interface FilterState {
   category: string;
   priceRange: [number, number];
   location: string;
+  distanceKm: string;
   sortBy: string;
 }
 
@@ -60,6 +61,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
     { value: 'fruits', label: 'Fruits' },
     { value: 'grains', label: 'Grains' },
     { value: 'dairy', label: 'Dairy' },
+    { value: 'milk', label: 'Milk' },
     { value: 'meat', label: 'Meat & Poultry' },
     { value: 'honey', label: 'Honey & Spices' },
     { value: 'organic', label: 'Organic Products' }
@@ -68,6 +70,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
   const hasActiveFilters = 
     filters.category !== 'all' || 
     filters.location !== '' || 
+    filters.distanceKm !== 'all' ||
     filters.priceRange[0] > 0 || 
     filters.priceRange[1] < maxPrice;
 
@@ -87,12 +90,17 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
     onFiltersChange({ ...filters, sortBy: value });
   };
 
+  const handleDistanceChange = (value: string) => {
+    onFiltersChange({ ...filters, distanceKm: value });
+  };
+
   const handleClearFilters = () => {
     onFiltersChange({
       searchTerm: filters.searchTerm,
       category: 'all',
       priceRange: [0, maxPrice],
       location: '',
+      distanceKm: 'all',
       sortBy: 'popular'
     });
   };
@@ -192,6 +200,28 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
 
         <div className="border-t pt-4" />
 
+        {/* Distance Filter */}
+        <div>
+          <Label className="text-sm font-semibold mb-3 flex items-center gap-2">
+            <Navigation className="h-4 w-4" />
+            Distance
+          </Label>
+          <Select value={filters.distanceKm} onValueChange={handleDistanceChange}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Any Distance</SelectItem>
+              <SelectItem value="5">Within 5 km</SelectItem>
+              <SelectItem value="10">Within 10 km</SelectItem>
+              <SelectItem value="25">Within 25 km</SelectItem>
+              <SelectItem value="50">Within 50 km</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="border-t pt-4" />
+
         {/* Location Filter */}
         <div>
           <Label className="text-sm font-semibold mb-3 flex items-center gap-2">
@@ -222,19 +252,41 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
               <p className="text-xs font-semibold text-gray-600">Active Filters:</p>
               <div className="flex flex-wrap gap-2">
                 {filters.category !== 'all' && (
-                  <Badge variant="secondary" className="gap-1">
+                  <Badge
+                    variant="secondary"
+                    className="gap-1 cursor-pointer"
+                    onClick={() => handleCategoryChange('all')}
+                  >
                     {categories.find(c => c.value === filters.category)?.label}
                     <X className="h-3 w-3 cursor-pointer" />
                   </Badge>
                 )}
                 {filters.location && (
-                  <Badge variant="secondary" className="gap-1">
+                  <Badge
+                    variant="secondary"
+                    className="gap-1 cursor-pointer"
+                    onClick={() => handleLocationChange('')}
+                  >
                     {filters.location}
                     <X className="h-3 w-3 cursor-pointer" />
                   </Badge>
                 )}
+                {filters.distanceKm !== 'all' && (
+                  <Badge
+                    variant="secondary"
+                    className="gap-1 cursor-pointer"
+                    onClick={() => handleDistanceChange('all')}
+                  >
+                    Within {filters.distanceKm} km
+                    <X className="h-3 w-3 cursor-pointer" />
+                  </Badge>
+                )}
                 {(filters.priceRange[0] > 0 || filters.priceRange[1] < maxPrice) && (
-                  <Badge variant="secondary" className="gap-1">
+                  <Badge
+                    variant="secondary"
+                    className="gap-1 cursor-pointer"
+                    onClick={() => handlePriceChange([0, maxPrice])}
+                  >
                     ₹{filters.priceRange[0]}-{filters.priceRange[1]}
                     <X className="h-3 w-3 cursor-pointer" />
                   </Badge>

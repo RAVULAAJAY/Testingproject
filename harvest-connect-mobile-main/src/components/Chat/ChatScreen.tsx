@@ -26,6 +26,8 @@ interface ChatScreenProps {
   participant: ChatParticipant;
   messages: ChatMessage[];
   onSendMessage: (message: string) => void;
+  initialMessage?: string;
+  contextInfo?: string;
   onBack?: () => void;
 }
 
@@ -33,6 +35,8 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
   participant,
   messages,
   onSendMessage,
+  initialMessage,
+  contextInfo,
   onBack,
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -108,6 +112,11 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
       </div>
 
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto bg-gray-50 p-4">
+        {contextInfo && (
+          <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">
+            {contextInfo}
+          </div>
+        )}
         {messages.length > 0 ? (
           messages.map((msg) => <ChatBubble key={msg.id} message={msg} />)
         ) : (
@@ -121,6 +130,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
       <MessageInput
         onSendMessage={onSendMessage}
         placeholder={`Message ${participant.name}...`}
+        initialValue={initialMessage}
       />
     </div>
   );

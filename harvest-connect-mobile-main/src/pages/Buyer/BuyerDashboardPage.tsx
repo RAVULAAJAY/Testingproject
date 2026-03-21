@@ -1,387 +1,232 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-  Search,
-  ShoppingCart,
-  Heart,
-  Zap,
-  TrendingUp,
-  CheckCircle,
-  AlertCircle as AlertIcon
-} from 'lucide-react';
-import { Product } from '@/components/Farmer/AddProductForm';
-import FilterPanel, { FilterState } from '@/components/Buyer/FilterPanel';
-import BuyerProductCard from '@/components/Buyer/BuyerProductCard';
-import BuyerMarketplacePanel from '@/components/Buyer/BuyerMarketplacePanel';
-
-// Sample farmer data for products
-interface FarmerSummary {
-  name: string;
-  rating: number;
-  reviews: number;
-}
-
-const sampleFarmers: Record<string, FarmerSummary> = {
-  farmer1: {
-    name: 'Green Valley Farms',
-    rating: 4.8,
-    reviews: 124
-  },
-  farmer2: {
-    name: 'Honey Sweet Farm',
-    rating: 4.9,
-    reviews: 98
-  },
-  farmer3: {
-    name: 'Organic Harvest',
-    rating: 4.6,
-    reviews: 76
-  }
-};
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Bell, Compass, Heart, MapPin, MessageSquare, ShoppingBag, Truck } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import { useGlobalState } from '@/context/GlobalStateContext';
 
 const BuyerDashboardPage: React.FC = () => {
-  return <BuyerMarketplacePanel />;
-
   const navigate = useNavigate();
-  // Sample products from different farmers
-  const [allProducts] = useState<Product[]>([
-    {
-      id: '1',
-      name: 'Fresh Tomatoes',
-      price: 40,
-      quantity: 50,
-      unit: 'kg',
-      image: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Ccircle cx="50" cy="50" r="45" fill="%23EF4444"/%3E%3Cpath d="M50 10 Q60 20 60 30 Q60 40 50 45" fill="%23059669"/%3E%3C/svg%3E',
-      location: 'Sector 45, Noida',
-      description: 'Fresh, organic tomatoes grown without pesticides. Perfect for cooking.',
-      category: 'vegetables',
-      createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-    },
-    {
-      id: '2',
-      name: 'Honeycomb',
-      price: 300,
-      quantity: 20,
-      unit: 'kg',
-      image: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Crect x="10" y="10" width="80" height="80" fill="%23FCD34D"/%3E%3Cpath d="M30 30 M40 25 M50 30 M60 25 M70 30" stroke="%23F59E0B" stroke-width="2"/%3E%3C/svg%3E',
-      location: 'Greater Noida',
-      description: 'Pure honeycomb, directly from the hive. Rich in nutrients.',
-      category: 'honey',
-      createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000)
-    },
-    {
-      id: '3',
-      name: 'Organic Spinach',
-      price: 25,
-      quantity: 5,
-      unit: 'kg',
-      image: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Cpath d="M50 20 Q70 30 70 50 Q70 70 50 80 Q30 70 30 50 Q30 30 50 20" fill="%23059669"/%3E%3C/svg%3E',
-      location: 'Delhi',
-      description: 'Fresh organic spinach, nutrient-rich and delicious.',
-      category: 'vegetables',
-      createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000)
-    },
-    {
-      id: '4',
-      name: 'Fresh Apples',
-      price: 80,
-      quantity: 25,
-      unit: 'kg',
-      image: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Ccircle cx="50" cy="55" r="40" fill="%23DC2626"/%3E%3Cpath d="M50 10 Q55 15 55 20 Q55 25 50 27 Q45 25 45 20 Q45 15 50 10" fill="%23059669"/%3E%3C/svg%3E',
-      location: 'Himachal Pradesh',
-      description: 'Crisp and sweet red apples from the hills.',
-      category: 'fruits',
-      createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)
-    },
-    {
-      id: '5',
-      name: 'Organic Rice',
-      price: 50,
-      quantity: 100,
-      unit: 'kg',
-      image: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Crect x="20" y="30" width="60" height="40" fill="%23F5DEB3" stroke="%23D2B48C" stroke-width="2"/%3E%3Cline x1="30" y1="35" x2="30" y2="65" stroke="%23D2B48C" stroke-width="1"/%3E%3Cline x1="40" y1="35" x2="40" y2="65" stroke="%23D2B48C" stroke-width="1"/%3E%3Cline x1="50" y1="35" x2="50" y2="65" stroke="%23D2B48C" stroke-width="1"/%3E%3C/svg%3E',
-      location: 'Punjab',
-      description: 'Premium basmati rice, aged for perfect taste.',
-      category: 'grains',
-      createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000)
-    },
-    {
-      id: '6',
-      name: 'Fresh Milk',
-      price: 60,
-      quantity: 50,
-      unit: 'liter',
-      image: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Crect x="25" y="20" width="50" height="65" fill="%23FFFFFF" stroke="%23E5E7EB" stroke-width="2" rx="5"/%3E%3Cpath d="M45 15 Q45 10 50 10 Q55 10 55 15" fill="%23E5E7EB"/%3E%3Cline x1="30" y1="50" x2="70" y2="50" stroke="%23F5F5F5" stroke-width="1"/%3E%3C/svg%3E',
-      location: 'Gurgaon',
-      description: 'Fresh, pure milk from healthy cows.',
-      category: 'dairy',
-      createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000)
-    },
-    {
-      id: '7',
-      name: 'Organic Broccoli',
-      price: 35,
-      quantity: 15,
-      unit: 'kg',
-      image: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Cpath d="M50 15 Q65 25 65 40 Q65 55 50 65 Q35 55 35 40 Q35 25 50 15" fill="%23059669"/%3E%3Ccircle cx="50" cy="40" r="8" fill="%232d5a2d"/%3E%3C/svg%3E',
-      location: 'Himachal Pradesh',
-      description: 'Fresh organic broccoli, crispy and nutritious.',
-      category: 'organic',
-      createdAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000)
-    },
-    {
-      id: '8',
-      name: 'Orange Juice',
-      price: 120,
-      quantity: 0,
-      unit: 'liter',
-      image: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Ccircle cx="50" cy="50" r="40" fill="%23FB923C"/%3E%3C/svg%3E',
-      location: 'Karnataka',
-      description: 'Fresh squeezed orange juice - currently out of stock.',
-      category: 'fruits',
-      createdAt: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000)
-    }
-  ]);
+  const { currentUser } = useAuth();
+  const { products, orders, favoriteProductIds, getNotificationsByUser } = useGlobalState();
 
-  const [filters, setFilters] = useState<FilterState>({
-    searchTerm: '',
-    category: 'all',
-    priceRange: [0, 500],
-    location: '',
-    sortBy: 'popular'
-  });
-
-  const [favorites, setFavorites] = useState<string[]>([]);
-  const [cartItems, setCartItems] = useState<{ product: Product; quantity: number }[]>([]);
-  const [successMessage, setSuccessMessage] = useState('');
-
-  // Filter and sort products
-  const filteredProducts = useMemo(() => {
-    let result = allProducts;
-
-    // Search filter
-    if (filters.searchTerm) {
-      const search = filters.searchTerm.toLowerCase();
-      result = result.filter(p =>
-        p.name.toLowerCase().includes(search) ||
-        p.description.toLowerCase().includes(search) ||
-        p.location.toLowerCase().includes(search)
-      );
+  const buyerOrders = useMemo(() => {
+    if (!currentUser) {
+      return [];
     }
 
-    // Category filter
-    if (filters.category !== 'all') {
-      result = result.filter(p => p.category === filters.category);
+    return orders.filter((order) => order.buyerId === currentUser.id);
+  }, [currentUser, orders]);
+
+  const userNotifications = useMemo(() => {
+    if (!currentUser) {
+      return [];
     }
 
-    // Price filter
-    result = result.filter(p => p.price >= filters.priceRange[0] && p.price <= filters.priceRange[1]);
+    return getNotificationsByUser(currentUser.id);
+  }, [currentUser, getNotificationsByUser]);
 
-    // Location filter
-    if (filters.location) {
-      result = result.filter(p => p.location.includes(filters.location));
+  const nearbyProducts = useMemo(() => {
+    if (!currentUser?.location) {
+      return [];
     }
 
-    // Sort
-    switch (filters.sortBy) {
-      case 'price-low':
-        result.sort((a, b) => a.price - b.price);
-        break;
-      case 'price-high':
-        result.sort((a, b) => b.price - a.price);
-        break;
-      case 'newest':
-        result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        break;
-      case 'popular':
-      default:
-        // Keep original order
-        break;
-    }
+    const cityHint = currentUser.location.split(',')[0].trim().toLowerCase();
+    return products
+      .filter((product) => (product.stock ?? product.quantity) > 0)
+      .filter((product) => product.location.toLowerCase().includes(cityHint))
+      .slice(0, 4);
+  }, [currentUser?.location, products]);
 
-    return result;
-  }, [allProducts, filters]);
+  const trendingProducts = useMemo(() => {
+    return [...products]
+      .filter((product) => (product.stock ?? product.quantity) > 0)
+      .sort((a, b) => (b.reviews ?? 0) - (a.reviews ?? 0))
+      .slice(0, 4);
+  }, [products]);
 
-  const handleAddToCart = (product: Product, quantity: number) => {
-    setCartItems(prev => {
-      const existing = prev.find(item => item.product.id === product.id);
-      if (existing) {
-        return prev.map(item =>
-          item.product.id === product.id
-            ? { ...item, quantity: item.quantity + quantity }
-            : item
-        );
-      }
-      return [...prev, { product, quantity }];
-    });
-    showSuccess(`Added ${product.name} to cart!`);
-  };
-
-  const handleToggleFavorite = (productId: string) => {
-    setFavorites(prev =>
-      prev.includes(productId)
-        ? prev.filter(id => id !== productId)
-        : [...prev, productId]
-    );
-  };
-
-  const showSuccess = (message: string) => {
-    setSuccessMessage(message);
-    setTimeout(() => setSuccessMessage(''), 3000);
-  };
+  const recentOrders = useMemo(() => {
+    return [...buyerOrders]
+      .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime())
+      .slice(0, 4);
+  }, [buyerOrders]);
 
   const stats = {
-    totalProducts: allProducts.length,
-    outOfStock: allProducts.filter(p => p.quantity === 0).length,
-    lowStock: allProducts.filter(p => p.quantity > 0 && p.quantity <= 10).length,
-    cartItems: cartItems.length,
-    favorites: favorites.length
+    ordersPlaced: buyerOrders.length,
+    activeOrders: buyerOrders.filter((order) => order.status !== 'delivered' && order.status !== 'cancelled').length,
+    savedProducts: favoriteProductIds.length,
+    unreadNotifications: userNotifications.filter((item) => !item.read).length,
   };
 
-  // Featured deals (out of stock or low stock)
-  const featuredDeals = allProducts.filter(p => p.quantity > 0).slice(0, 4);
+  if (!currentUser) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <div className="space-y-6 pb-8">
-      {/* Header */}
-      <div>
-        <h1 className="text-4xl font-bold text-gray-900">FarmDirect Marketplace</h1>
-        <p className="text-gray-600 mt-2">Fresh farm produce delivered to your home</p>
-      </div>
-
-      {/* Success Message */}
-      {successMessage && (
-        <Alert className="bg-green-50 border-green-200 text-green-800">
-          <CheckCircle className="h-4 w-4" />
-          <AlertDescription>{successMessage}</AlertDescription>
-        </Alert>
-      )}
-
-      {/* Quick Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card>
-          <CardContent className="pt-4">
-            <p className="text-xs text-gray-600">Products Available</p>
-            <p className="text-2xl font-bold text-gray-900 mt-1">{stats.totalProducts}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <p className="text-xs text-gray-600">Saved Items</p>
-            <p className="text-2xl font-bold text-red-600 mt-1">{stats.favorites}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <p className="text-xs text-gray-600">Cart Items</p>
-            <p className="text-2xl font-bold text-blue-600 mt-1">{stats.cartItems}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <p className="text-xs text-gray-600">Low Stock</p>
-            <p className="text-2xl font-bold text-orange-600 mt-1">{stats.lowStock}</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Featured Deals */}
-      <Card className="bg-gradient-to-r from-green-50 to-blue-50 border-green-200">
+      <Card className="border-0 bg-gradient-to-r from-sky-700 via-blue-700 to-cyan-700 text-white shadow-sm">
         <CardContent className="pt-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Zap className="h-5 w-5 text-green-600" />
-            <h2 className="text-lg font-bold text-gray-900">Featured Deals</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {featuredDeals.map(product => (
-              <div key={product.id} className="bg-white p-3 rounded-lg border border-green-200">
-                <p className="font-semibold text-gray-900 text-sm">{product.name}</p>
-                <p className="text-sm text-gray-600">₹{product.price}/{product.unit}</p>
-                <p className="text-xs text-green-600 font-medium mt-1">Limited Stock</p>
+          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h1 className="text-3xl font-bold">Welcome, {currentUser.name}</h1>
+              <p className="mt-2 text-blue-100">Your smart buyer dashboard for nearby farm-fresh shopping.</p>
+              <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium">
+                <MapPin className="h-3 w-3" />
+                {currentUser.location}
               </div>
-            ))}
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-2 lg:grid-cols-4">
+              <Button className="bg-white text-blue-700 hover:bg-blue-50" onClick={() => navigate('/browse')}>
+                <Compass className="mr-2 h-4 w-4" />
+                Explore
+              </Button>
+              <Button className="bg-white text-blue-700 hover:bg-blue-50" onClick={() => navigate('/orders')}>
+                <Truck className="mr-2 h-4 w-4" />
+                Orders
+              </Button>
+              <Button className="bg-white text-blue-700 hover:bg-blue-50" onClick={() => navigate('/messages')}>
+                <MessageSquare className="mr-2 h-4 w-4" />
+                Chat
+              </Button>
+              <Button className="bg-white text-blue-700 hover:bg-blue-50" onClick={() => navigate('/notifications')}>
+                <Bell className="mr-2 h-4 w-4" />
+                Alerts
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Main Content - Search and Products */}
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">Browse Products</h2>
-
-        {/* Search Bar */}
-        <div className="relative mb-6">
-          <Search className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-          <Input
-            placeholder="Search products by name, description, or location..."
-            value={filters.searchTerm}
-            onChange={(e) => setFilters({ ...filters, searchTerm: e.target.value })}
-            className="pl-10 h-12 text-base"
-          />
-        </div>
-
-        {/* Filters + Products Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Filter Panel - Sticky on desktop */}
-          <div className="lg:col-span-1">
-            <FilterPanel
-              filters={filters}
-              onFiltersChange={setFilters}
-              maxPrice={500}
-            />
-          </div>
-
-          {/* Products Grid */}
-          <div className="lg:col-span-3">
-            {filteredProducts.length > 0 ? (
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredProducts.map(product => (
-                    <BuyerProductCard
-                      key={product.id}
-                      product={product}
-                      farmer={sampleFarmers[`farmer${(parseInt(product.id) % 3) + 1}`]}
-                      onAddToCart={handleAddToCart}
-                      onViewDetails={(p) => navigate(`/product/${p.id}`)}
-                      isFavorite={favorites.includes(product.id)}
-                      onToggleFavorite={handleToggleFavorite}
-                    />
-                  ))}
-                </div>
-
-                {/* Results Summary */}
-                <div className="mt-6 p-4 bg-gray-50 rounded-lg text-center">
-                  <p className="text-sm text-gray-600">
-                    Showing {filteredProducts.length} of {allProducts.length} products
-                  </p>
-                </div>
-              </>
-            ) : (
-              <div className="h-96 flex flex-col items-center justify-center text-center">
-                <div className="text-6xl mb-4">🌾</div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">No products found</h3>
-                <p className="text-gray-600 mb-4">Try adjusting your filters or search terms</p>
-                <Button
-                  variant="outline"
-                  onClick={() => setFilters({
-                    searchTerm: '',
-                    category: 'all',
-                    priceRange: [0, 500],
-                    location: '',
-                    sortBy: 'popular'
-                  })}
-                >
-                  Clear Filters
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-sm text-gray-600">Orders Placed</p>
+            <p className="mt-1 text-3xl font-bold text-gray-900">{stats.ordersPlaced}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-sm text-gray-600">Active Orders</p>
+            <p className="mt-1 text-3xl font-bold text-amber-600">{stats.activeOrders}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-sm text-gray-600">Saved Products</p>
+            <p className="mt-1 text-3xl font-bold text-rose-600">{stats.savedProducts}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-sm text-gray-600">Unread Alerts</p>
+            <p className="mt-1 text-3xl font-bold text-blue-600">{stats.unreadNotifications}</p>
+          </CardContent>
+        </Card>
       </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Nearby Results</CardTitle>
+            <CardDescription>Products close to your selected location</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {nearbyProducts.length > 0 ? (
+              <div className="space-y-3">
+                {nearbyProducts.map((product) => (
+                  <div key={product.id} className="flex items-center justify-between rounded-lg border p-3">
+                    <div>
+                      <p className="font-medium text-gray-900">{product.name}</p>
+                      <p className="text-sm text-gray-600">{product.location}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold text-blue-700">₹{product.price}/{product.unit}</p>
+                      <p className="text-xs text-gray-500">{product.stock ?? product.quantity} available</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-600">No nearby products yet. Explore all listings to find more.</p>
+            )}
+            <Button className="mt-4 w-full" variant="outline" onClick={() => navigate('/browse')}>
+              Browse Marketplace
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Trending This Week</CardTitle>
+            <CardDescription>Popular products with high buyer engagement</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {trendingProducts.map((product) => (
+              <div key={product.id} className="flex items-center justify-between rounded-lg border p-3">
+                <div>
+                  <p className="font-medium text-gray-900">{product.name}</p>
+                  <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
+                    <Badge variant="secondary">{product.reviews ?? 0} reviews</Badge>
+                    <span>{product.location}</span>
+                  </div>
+                </div>
+                <p className="font-semibold text-emerald-700">₹{product.price}/{product.unit}</p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Orders</CardTitle>
+          <CardDescription>Latest purchases and delivery status</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {recentOrders.length > 0 ? (
+            <div className="space-y-3">
+              {recentOrders.map((order) => (
+                <div key={order.id} className="flex flex-col gap-2 rounded-lg border p-4 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <p className="font-semibold text-gray-900">{order.productName}</p>
+                    <p className="text-sm text-gray-600">Farmer: {order.farmerName}</p>
+                  </div>
+                  <div className="text-left md:text-right">
+                    <p className="font-semibold text-gray-900">₹{order.totalPrice}</p>
+                    <Badge variant="secondary" className="capitalize mt-1">{order.status}</Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-dashed p-8 text-center">
+              <ShoppingBag className="mx-auto h-8 w-8 text-gray-400" />
+              <p className="mt-2 text-sm text-gray-600">No orders yet. Start exploring fresh farm products.</p>
+              <Button className="mt-3" onClick={() => navigate('/browse')}>
+                Start Shopping
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Saved Picks</CardTitle>
+          <CardDescription>Your wishlist and quick re-order area</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2 text-gray-700">
+            <Heart className="h-4 w-4 text-rose-500" />
+            {stats.savedProducts} saved product{stats.savedProducts === 1 ? '' : 's'}
+          </div>
+          <Button variant="outline" onClick={() => navigate('/browse')}>
+            Manage Wishlist
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 };

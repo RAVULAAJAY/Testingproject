@@ -8,7 +8,6 @@ import {
   Heart,
   MapPin,
   Star,
-  Truck,
   AlertCircle
 } from 'lucide-react';
 import {
@@ -27,7 +26,7 @@ interface BuyerProductCardProps {
     rating: number;
     reviews: number;
   };
-  onPlaceOrder?: (product: Product, quantity: number) => void;
+  onAddToCart?: (productId: string, quantity: number) => void;
   onViewDetails?: (product: Product) => void;
   isFavorite?: boolean;
   onToggleFavorite?: (productId: string) => void;
@@ -36,13 +35,14 @@ interface BuyerProductCardProps {
 const BuyerProductCard: React.FC<BuyerProductCardProps> = ({
   product,
   farmer,
-  onPlaceOrder,
+  onAddToCart,
   onViewDetails,
   isFavorite = false,
   onToggleFavorite
 }) => {
   const [quantity, setQuantity] = useState(1);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const availableStock = product.stock ?? product.quantity;
 
   const categoryLabels: Record<string, string> = {
     vegetables: 'Vegetables',
@@ -66,11 +66,12 @@ const BuyerProductCard: React.FC<BuyerProductCardProps> = ({
     other: 'bg-gray-100 text-gray-700'
   };
 
-  const isLowStock = product.quantity > 0 && product.quantity <= 5;
-  const isOutOfStock = product.quantity === 0;
+  const isLowStock = availableStock > 0 && availableStock <= 5;
+  const isOutOfStock = availableStock === 0;
 
   const handleAddToCart = () => {
-    onPlaceOrder?.(product, quantity);
+    onAddToCart?.(product.id, quantity);
+
     setShowQuickAdd(false);
     setQuantity(1);
   };
@@ -121,7 +122,7 @@ const BuyerProductCard: React.FC<BuyerProductCardProps> = ({
 
           {isLowStock && !isOutOfStock && (
             <div className="absolute bottom-0 left-0 right-0 bg-orange-500 text-white py-1 px-2 text-xs font-semibold">
-              Only {product.quantity} left!
+              Only {availableStock} left!
             </div>
           )}
         </div>
@@ -244,14 +245,14 @@ const BuyerProductCard: React.FC<BuyerProductCardProps> = ({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setQuantity(Math.min(product.quantity, quantity + 1))}
-                  disabled={quantity >= product.quantity}
+                  onClick={() => setQuantity(Math.min(availableStock, quantity + 1))}
+                  disabled={quantity >= availableStock}
                 >
                   +
                 </Button>
               </div>
               <p className="text-xs text-gray-500 mt-2">
-                Available: {product.quantity} {product.unit}
+                Stock: {availableStock} {product.unit}
               </p>
             </div>
 
@@ -265,15 +266,6 @@ const BuyerProductCard: React.FC<BuyerProductCardProps> = ({
               </div>
             </div>
 
-            {/* Delivery Info */}
-            <div className="flex items-start gap-2 p-3 bg-blue-50 rounded-lg">
-              <Truck className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
-              <div className="text-sm text-blue-800">
-                <p className="font-medium">Free delivery on orders above ₹500</p>
-                <p className="text-xs mt-1">Estimated delivery: 1-2 days</p>
-              </div>
-            </div>
-
             {/* Action Buttons */}
             <div className="flex gap-3">
               <Button
@@ -281,7 +273,7 @@ const BuyerProductCard: React.FC<BuyerProductCardProps> = ({
                 className="flex-1 gap-2 bg-green-600 hover:bg-green-700"
               >
                 <ShoppingCart className="h-4 w-4" />
-                Place Order
+                Add to Cart
               </Button>
               <Button
                 onClick={() => setShowQuickAdd(false)}

@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useAuth, UserRole, type User } from '@/context/AuthContext';
+import { isProfileComplete, useAuth, UserRole, type User } from '@/context/AuthContext';
 import EnhancedAuthForm from '@/components/EnhancedAuthForm';
 import RoleSelection from '@/components/RoleSelection';
 import RoleSelectionSignup from '@/components/RoleSelectionSignup';
@@ -33,6 +33,11 @@ const Index = () => {
   // Check if user is already logged in - redirect to role-specific dashboard
   useEffect(() => {
     if (currentUser) {
+      if (currentUser.role === 'farmer' && !isProfileComplete(currentUser)) {
+        navigate('/complete-profile', { replace: true });
+        return;
+      }
+
       const dashboardPath = getDashboardPath(currentUser.role);
       navigate(dashboardPath, { replace: true });
     }

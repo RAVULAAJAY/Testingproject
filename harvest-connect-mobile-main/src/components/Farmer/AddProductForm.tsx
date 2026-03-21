@@ -11,13 +11,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Upload, X } from 'lucide-react';
+import { Plus, Upload, X, MapPin, Navigation } from 'lucide-react';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export interface Product {
   id: string;
   name: string;
   price: number;
+  stock: number;
   quantity: number;
   unit: string;
   image: string;
@@ -39,7 +40,7 @@ interface AddProductFormProps {
 const createInitialFormData = (initialProduct?: Partial<Product> | null) => ({
   name: initialProduct?.name ?? '',
   price: initialProduct?.price?.toString() ?? '',
-  quantity: initialProduct?.quantity?.toString() ?? '',
+  stock: (initialProduct?.stock ?? initialProduct?.quantity)?.toString() ?? '',
   unit: initialProduct?.unit ?? 'kg',
   image: initialProduct?.image ?? '',
   location: initialProduct?.location ?? '',
@@ -58,12 +59,24 @@ const AddProductForm: React.FC<AddProductFormProps> = ({
   const [formData, setFormData] = useState(createInitialFormData(initialProduct));
 
   const [preview, setPreview] = useState<string | null>(null);
+  const [uploadedImages, setUploadedImages] = useState<Array<{ name: string; dataUrl: string }>>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
 
   useEffect(() => {
     setFormData(createInitialFormData(initialProduct));
     setPreview(initialProduct?.image ?? null);
+    setUploadedImages(
+      initialProduct?.image
+        ? [
+            {
+              name: 'current-image',
+              dataUrl: initialProduct.image,
+            },
+          ]
+        : []
+    );
     setErrors({});
   }, [initialProduct]);
 
@@ -72,6 +85,7 @@ const AddProductForm: React.FC<AddProductFormProps> = ({
     { value: 'fruits', label: 'Fruits' },
     { value: 'grains', label: 'Grains' },
     { value: 'dairy', label: 'Dairy' },
+    { value: 'milk', label: 'Milk' },
     { value: 'meat', label: 'Meat & Poultry' },
     { value: 'honey', label: 'Honey & Spices' },
     { value: 'organic', label: 'Organic Products' },
@@ -94,8 +108,8 @@ const AddProductForm: React.FC<AddProductFormProps> = ({
     if (!formData.price || parseFloat(formData.price) <= 0) {
       newErrors.price = 'Valid price is required';
     }
-    if (!formData.quantity || parseInt(formData.quantity) <= 0) {
-      newErrors.quantity = 'Valid quantity is required';
+    if (formData.stock === '' || Number.isNaN(Number(formData.stock)) || parseInt(formData.stock, 10) < 0) {
+      newErrors.stock = 'Valid stock is required';
     }
     if (!formData.location.trim()) newErrors.location = 'Location is required';
     if (!preview) newErrors.image = 'Product image is required';
@@ -104,25 +118,101 @@ const AddProductForm: React.FC<AddProductFormProps> = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
+  const readFileAsDataUrl = (file: File) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        resolve(reader.result as string);
+      };
+      reader.onerror = () => reject(new Error('File read failed'));
+      reader.readAsDataURL(file);
+    });
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) {
+      return;
+    }
+
+    const nextImages: Array<{ name: string; dataUrl: string }> = [];
+
+    for (const file of files) {
       if (!file.type.startsWith('image/')) {
-        setErrors(prev => ({ ...prev, image: 'Please select an image file' }));
-        return;
-      }
-      if (file.size > 5 * 1024 * 1024) {
-        setErrors(prev => ({ ...prev, image: 'Image size should be less than 5MB' }));
+        setErrors((prev) => ({ ...prev, image: 'Only image files are allowed' }));
         return;
       }
 
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreview(reader.result as string);
-        setFormData(prev => ({ ...prev, image: reader.result as string }));
-        setErrors(prev => ({ ...prev, image: '' }));
-      };
-      reader.readAsDataURL(file);
+      if (file.size > 5 * 1024 * 1024) {
+        setErrors((prev) => ({ ...prev, image: 'Each image must be less than 5MB' }));
+        return;
+      }
+
+      const dataUrl = await readFileAsDataUrl(file);
+      nextImages.push({ name: file.name, dataUrl });
+    }
+
+    setUploadedImages((prev) => {
+      const merged = [...prev.filter((item) => item.name !== 'current-image'), ...nextImages].slice(0, 5);
+      setPreview(merged[0]?.dataUrl ?? null);
+      return merged;
+    });
+
+    setErrors((prev) => ({ ...prev, image: '' }));
+    e.target.value = '';
+  };
+
+  const handleRemoveImage = (index: number) => {
+    setUploadedImages((prev) => {
+      const filtered = prev.filter((_, idx) => idx !== index);
+      setPreview(filtered[0]?.dataUrl ?? null);
+      return filtered;
+    });
+  };
+
+  const handleAutoTagLocation = async () => {
+    setIsDetectingLocation(true);
+    setErrors((prev) => ({ ...prev, location: '' }));
+
+    try {
+      const coords = await new Promise<GeolocationPosition>((resolve, reject) => {
+        if (!navigator.geolocation) {
+          reject(new Error('Geolocation not supported'));
+          return;
+        }
+
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+        });
+      });
+
+      const latitude = coords.coords.latitude.toFixed(6);
+      const longitude = coords.coords.longitude.toFixed(6);
+
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`,
+        {
+          headers: { Accept: 'application/json' },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Location lookup failed');
+      }
+
+      const data = (await response.json()) as { display_name?: string };
+      const locationValue = data.display_name
+        ? `${data.display_name} (${latitude}, ${longitude})`
+        : `${latitude}, ${longitude}`;
+
+      setFormData((prev) => ({ ...prev, location: locationValue }));
+    } catch {
+      setErrors((prev) => ({
+        ...prev,
+        location: 'Could not auto-tag location. Please enter location manually.',
+      }));
+    } finally {
+      setIsDetectingLocation(false);
     }
   };
 
@@ -145,12 +235,15 @@ const AddProductForm: React.FC<AddProductFormProps> = ({
 
     setIsSubmitting(true);
     try {
+      const stock = Math.max(0, parseInt(formData.stock, 10));
+      const resolvedImage = uploadedImages[0]?.dataUrl ?? preview ?? '';
       const product: Omit<Product, 'id' | 'createdAt'> = {
         name: formData.name,
         price: parseFloat(formData.price),
-        quantity: parseInt(formData.quantity),
+        stock,
+        quantity: stock,
         unit: formData.unit,
-        image: preview || '',
+        image: resolvedImage,
         location: formData.location,
         description: formData.description,
         category: formData.category
@@ -161,6 +254,7 @@ const AddProductForm: React.FC<AddProductFormProps> = ({
       // Reset form
       setFormData(createInitialFormData(null));
       setPreview(null);
+      setUploadedImages([]);
       setErrors({});
     } finally {
       setIsSubmitting(false);
@@ -180,36 +274,59 @@ const AddProductForm: React.FC<AddProductFormProps> = ({
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Image Upload */}
           <div>
-            <Label className="mb-2 block">Product Image *</Label>
+            <Label className="mb-2 block">Product Images *</Label>
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition">
               {preview ? (
-                <div className="relative inline-block">
-                  <img
-                    src={preview}
-                    alt="Preview"
-                    className="h-48 w-48 object-cover rounded-lg"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPreview(null);
-                      setFormData(prev => ({ ...prev, image: '' }));
-                    }}
-                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
+                <div className="relative inline-flex flex-col items-center gap-3">
+                  <div className="inline-block">
+                    <img
+                      src={preview}
+                      alt="Preview"
+                      className="h-48 w-48 object-cover rounded-lg"
+                    />
+                  </div>
+                  {uploadedImages.length > 0 && (
+                    <div className="grid grid-cols-3 gap-2 w-full max-w-xs">
+                      {uploadedImages.map((image, index) => (
+                        <div key={`${image.name}-${index}`} className="relative">
+                          <img
+                            src={image.dataUrl}
+                            alt={image.name}
+                            className="h-16 w-full object-cover rounded-md border"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveImage(index)}
+                            className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <label className="cursor-pointer text-sm text-blue-600 hover:text-blue-700">
+                    Add more images
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleImageUpload}
+                      className="hidden"
+                    />
+                  </label>
                 </div>
               ) : (
                 <label className="cursor-pointer">
                   <div className="flex flex-col items-center gap-2">
                     <Upload className="h-8 w-8 text-gray-400" />
-                    <p className="text-sm font-medium text-gray-700">Click to upload image</p>
-                    <p className="text-xs text-gray-500">PNG, JPG up to 5MB</p>
+                    <p className="text-sm font-medium text-gray-700">Click to upload images</p>
+                    <p className="text-xs text-gray-500">PNG/JPG/WebP up to 5MB each, max 5 images</p>
                   </div>
                   <input
                     type="file"
                     accept="image/*"
+                    multiple
                     onChange={handleImageUpload}
                     className="hidden"
                   />
@@ -267,7 +384,7 @@ const AddProductForm: React.FC<AddProductFormProps> = ({
             </div>
           </div>
 
-          {/* Price and Quantity */}
+          {/* Price and Stock */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="price">Price per {formData.unit} (₹) *</Label>
@@ -287,19 +404,19 @@ const AddProductForm: React.FC<AddProductFormProps> = ({
               )}
             </div>
             <div>
-              <Label htmlFor="quantity">Quantity Available *</Label>
+              <Label htmlFor="stock">Quantity Available *</Label>
               <Input
-                id="quantity"
-                name="quantity"
+                id="stock"
+                name="stock"
                 type="number"
                 placeholder="0"
                 min="0"
-                value={formData.quantity}
+                value={formData.stock}
                 onChange={handleChange}
-                className={errors.quantity ? 'border-red-500' : ''}
+                className={errors.stock ? 'border-red-500' : ''}
               />
-              {errors.quantity && (
-                <p className="text-red-500 text-sm mt-1">{errors.quantity}</p>
+              {errors.stock && (
+                <p className="text-red-500 text-sm mt-1">{errors.stock}</p>
               )}
             </div>
           </div>
@@ -307,14 +424,35 @@ const AddProductForm: React.FC<AddProductFormProps> = ({
           {/* Location */}
           <div>
             <Label htmlFor="location">Location of Farm/Store *</Label>
-            <Input
-              id="location"
-              name="location"
-              placeholder="e.g., Sector 45, Noida"
-              value={formData.location}
-              onChange={handleChange}
-              className={errors.location ? 'border-red-500' : ''}
-            />
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Input
+                id="location"
+                name="location"
+                placeholder="e.g., Sector 45, Noida"
+                value={formData.location}
+                onChange={handleChange}
+                className={errors.location ? 'border-red-500' : ''}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleAutoTagLocation}
+                disabled={isDetectingLocation}
+                className="sm:w-auto"
+              >
+                {isDetectingLocation ? (
+                  <>
+                    <Navigation className="h-4 w-4 mr-2 animate-pulse" />
+                    Tagging...
+                  </>
+                ) : (
+                  <>
+                    <MapPin className="h-4 w-4 mr-2" />
+                    Auto-tag
+                  </>
+                )}
+              </Button>
+            </div>
             {errors.location && (
               <p className="text-red-500 text-sm mt-1">{errors.location}</p>
             )}

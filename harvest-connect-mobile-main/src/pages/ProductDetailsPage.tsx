@@ -19,11 +19,12 @@ import {
   Share2,
   MessageCircle,
   ShoppingCart,
-  Check,
   AlertCircle,
+  CheckCircle,
 } from 'lucide-react';
 import { Product } from '@/lib/data';
 import { useGlobalState } from '@/context/GlobalStateContext';
+import { useNavigate } from 'react-router-dom';
 
 interface Farmer {
   id: string;
@@ -72,18 +73,18 @@ const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({
   farmer,
   onBack,
 }) => {
+  const navigate = useNavigate();
   const {
     currentUser,
-    placeOrder,
+    addToCart,
     isFavoriteProduct,
     toggleFavoriteProduct,
   } = useGlobalState();
 
   const [quantity, setQuantity] = useState(1);
   const [showContactDialog, setShowContactDialog] = useState(false);
-  const [showOrderDialog, setShowOrderDialog] = useState(false);
   const [contactMessage, setContactMessage] = useState('');
-  const [orderSuccess, setOrderSuccess] = useState(false);
+  const [cartSuccess, setCartSuccess] = useState(false);
 
   const resolvedFarmer: Farmer = useMemo(() => ({
     id: farmer?.id ?? product.farmerId,
@@ -101,6 +102,7 @@ const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({
 
   const isFavorite = isFavoriteProduct(product.id);
   const listedDate = product.createdAt ?? product.harvestDate;
+  const availableStock = product.stock ?? product.quantity;
 
   const reviews = [
     {
@@ -130,22 +132,34 @@ const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({
     toggleFavoriteProduct(product.id);
   };
 
-  const handlePlaceOrder = () => {
-    if (currentUser) {
-      placeOrder(product, quantity);
+  const handleAddToCart = () => {
+    if (currentUser?.role !== 'buyer') {
+      return;
     }
 
-    setOrderSuccess(true);
-    window.setTimeout(() => {
-      setShowOrderDialog(false);
-      setOrderSuccess(false);
-      setQuantity(1);
-    }, 1400);
+    addToCart(product.id, quantity);
+    setCartSuccess(true);
+    window.setTimeout(() => setCartSuccess(false), 1800);
+  };
+
+  const handleBuyNow = () => {
+    handleAddToCart();
+    navigate('/checkout');
   };
 
   const handleContactFarmer = () => {
     setShowContactDialog(false);
     setContactMessage('');
+  };
+
+  const handleChatWithFarmer = () => {
+    const query = new URLSearchParams({
+      partnerId: resolvedFarmer.id,
+      productName: product.name,
+      draft: `Hi ${resolvedFarmer.name}, I am interested in ${product.name}.`,
+    });
+
+    navigate(`/messages?${query.toString()}`);
   };
 
   return (
@@ -218,20 +232,61 @@ const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({
             </div>
           </div>
 
-          {product.quantity === 0 ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Farmer Details</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div>
+                <p className="text-sm text-gray-600">Farmer Name</p>
+                <p className="font-semibold text-gray-900">{resolvedFarmer.name}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Farm Details</p>
+                <p className="text-gray-800">{resolvedFarmer.bio}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Location</p>
+                <p className="text-gray-900">{resolvedFarmer.location}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Ratings</p>
+                <p className="text-gray-900">{resolvedFarmer.rating} / 5 ({resolvedFarmer.reviews} reviews)</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <Button onClick={() => setShowContactDialog(true)} variant="outline" className="gap-2">
+                  <MessageCircle className="h-4 w-4" />
+                  Contact Farmer
+                </Button>
+                <Button onClick={handleChatWithFarmer} className="gap-2 bg-blue-600 hover:bg-blue-700 text-white">
+                  <MessageCircle className="h-4 w-4" />
+                  Chat
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {availableStock === 0 ? (
             <Alert className="bg-red-50 border-red-200 text-red-800">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>This product is currently out of stock</AlertDescription>
             </Alert>
-          ) : product.quantity <= 10 ? (
+          ) : availableStock <= 10 ? (
             <Alert className="bg-orange-50 border-orange-200 text-orange-800">
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription>Only {product.quantity} units available. Order now!</AlertDescription>
+              <AlertDescription>Only {availableStock} units available. Order now!</AlertDescription>
             </Alert>
           ) : (
             <Alert className="bg-green-50 border-green-200 text-green-800">
-              <Check className="h-4 w-4" />
-              <AlertDescription>{product.quantity} units in stock - Free delivery on orders above ₹500</AlertDescription>
+              <CheckCircle className="h-4 w-4" />
+              <AlertDescription>{availableStock} units in stock - Free delivery on orders above ₹500</AlertDescription>
+            </Alert>
+          )}
+
+          {cartSuccess && (
+            <Alert className="bg-emerald-50 border-emerald-200 text-emerald-800">
+              <CheckCircle className="h-4 w-4" />
+              <AlertDescription>{product.name} was added to your cart.</AlertDescription>
             </Alert>
           )}
 
@@ -242,15 +297,15 @@ const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({
                 <Button
                   variant="outline"
                   onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  disabled={product.quantity === 0}
+                  disabled={availableStock === 0}
                 >
                   −
                 </Button>
                 <span className="w-16 text-center text-2xl font-bold">{quantity}</span>
                 <Button
                   variant="outline"
-                  onClick={() => setQuantity(Math.min(product.quantity, quantity + 1))}
-                  disabled={quantity >= product.quantity || product.quantity === 0}
+                  onClick={() => setQuantity(Math.min(availableStock, quantity + 1))}
+                  disabled={quantity >= availableStock || availableStock === 0}
                 >
                   +
                 </Button>
@@ -260,20 +315,21 @@ const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({
 
             <div className="space-y-3">
               <Button
-                onClick={() => setShowOrderDialog(true)}
-                disabled={product.quantity === 0}
+                onClick={handleAddToCart}
+                disabled={availableStock === 0}
                 className="w-full gap-2 bg-green-600 py-6 text-lg text-white hover:bg-green-700"
               >
                 <ShoppingCart className="h-5 w-5" />
-                Place Order (₹{(product.price * quantity).toFixed(2)})
+                Add to Cart (₹{(product.price * quantity).toFixed(2)})
               </Button>
               <Button
-                onClick={() => setShowContactDialog(true)}
+                onClick={handleBuyNow}
                 variant="outline"
                 className="w-full gap-2 py-6 text-lg"
+                disabled={availableStock === 0}
               >
-                <MessageCircle className="h-5 w-5" />
-                Contact Farmer
+                <Truck className="h-5 w-5" />
+                Buy Now via Checkout
               </Button>
             </div>
           </div>
@@ -335,7 +391,7 @@ const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({
                 </div>
                 <div>
                   <p className="mb-1 text-sm text-gray-600">Available Quantity</p>
-                  <p className="font-semibold text-gray-900">{product.quantity} {product.unit}</p>
+                  <p className="font-semibold text-gray-900">{availableStock} {product.unit}</p>
                 </div>
                 <div>
                   <p className="mb-1 text-sm text-gray-600">Listed On</p>
@@ -432,10 +488,16 @@ const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({
                 </div>
               </div>
 
-              <Button onClick={() => setShowContactDialog(true)} className="w-full gap-2">
-                <MessageCircle className="h-4 w-4" />
-                Contact This Farmer
-              </Button>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <Button onClick={() => setShowContactDialog(true)} variant="outline" className="w-full gap-2">
+                  <MessageCircle className="h-4 w-4" />
+                  Contact Farmer
+                </Button>
+                <Button onClick={handleChatWithFarmer} className="w-full gap-2 bg-blue-600 hover:bg-blue-700 text-white">
+                  <MessageCircle className="h-4 w-4" />
+                  Chat with Farmer
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -515,78 +577,6 @@ const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({
               </Button>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showOrderDialog} onOpenChange={setShowOrderDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Place Order</DialogTitle>
-            <DialogDescription>Complete your order for {product.name}</DialogDescription>
-          </DialogHeader>
-
-          {orderSuccess ? (
-            <div className="flex flex-col items-center justify-center py-8">
-              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-                <Check className="h-8 w-8 text-green-600" />
-              </div>
-              <h3 className="mb-2 text-2xl font-bold text-gray-900">Order Placed!</h3>
-              <p className="mb-4 text-center text-gray-600">
-                Your order has been saved to state. You'll receive a confirmation message shortly.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="space-y-3 rounded-lg bg-gray-50 p-4">
-                <div className="flex justify-between">
-                  <span className="text-gray-700">Product:</span>
-                  <span className="font-medium">{product.name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-700">Seller:</span>
-                  <span className="font-medium">{resolvedFarmer.name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-700">Quantity:</span>
-                  <span className="font-medium">{quantity} {product.unit}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-700">Price per {product.unit}:</span>
-                  <span className="font-medium">₹{product.price.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between border-t border-gray-200 pt-3">
-                  <span className="font-semibold text-gray-900">Total:</span>
-                  <span className="text-2xl font-bold text-green-600">₹{(product.price * quantity).toFixed(2)}</span>
-                </div>
-              </div>
-
-              <div>
-                <Label>Delivery Address</Label>
-                <textarea
-                  placeholder="Enter your complete delivery address"
-                  rows={3}
-                  className="mt-2 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none"
-                />
-              </div>
-
-              <Alert className="bg-blue-50 border-blue-200 text-blue-800">
-                <Truck className="h-4 w-4" />
-                <AlertDescription>
-                  Estimated delivery: 1-2 days | Free delivery on orders above ₹500
-                </AlertDescription>
-              </Alert>
-
-              <div className="flex gap-3">
-                <Button onClick={handlePlaceOrder} className="flex-1 bg-green-600 py-6 text-lg hover:bg-green-700">
-                  <ShoppingCart className="mr-2 h-5 w-5" />
-                  Confirm Order
-                </Button>
-                <Button onClick={() => setShowOrderDialog(false)} variant="outline" className="flex-1">
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          )}
         </DialogContent>
       </Dialog>
     </div>

@@ -10,7 +10,8 @@ import {
   Settings,
   LogOut,
   ChevronDown,
-  Search
+  Search,
+  Wallet
 } from 'lucide-react';
 import { User as UserType } from '@/context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -133,7 +134,10 @@ const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           {/* Messages - Desktop only */}
-          <button className="hidden md:flex items-center justify-center w-10 h-10 rounded-xl hover:bg-gradient-to-br hover:from-blue-100 hover:to-blue-50 text-gray-600 hover:text-blue-600 transition-all duration-200 group">
+          <button
+            onClick={() => handleNavigate('/messages')}
+            className="hidden md:flex items-center justify-center w-10 h-10 rounded-xl hover:bg-gradient-to-br hover:from-blue-100 hover:to-blue-50 text-gray-600 hover:text-blue-600 transition-all duration-200 group"
+          >
             <MessageSquare className="h-5 w-5 group-hover:scale-110 transition-transform" />
           </button>
 
@@ -209,6 +213,20 @@ const Navbar: React.FC<NavbarProps> = ({
                       >
                         <ShoppingCart className="h-4 w-4 group-hover:scale-110 transition-transform" />
                         Browse Listings
+                      </button>
+                      <button
+                        onClick={() => handleNavigate('/cart')}
+                        className="w-full text-left px-4 py-2.5 text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-3 text-sm transition-all duration-150 group"
+                      >
+                        <ShoppingCart className="h-4 w-4 group-hover:scale-110 transition-transform" />
+                        My Cart
+                      </button>
+                      <button
+                        onClick={() => handleNavigate('/checkout')}
+                        className="w-full text-left px-4 py-2.5 text-gray-700 hover:bg-teal-50 hover:text-teal-700 flex items-center gap-3 text-sm transition-all duration-150 group"
+                      >
+                        <Wallet className="h-4 w-4 group-hover:scale-110 transition-transform" />
+                        Checkout
                       </button>
                       <button
                         onClick={() => handleNavigate('/orders')}

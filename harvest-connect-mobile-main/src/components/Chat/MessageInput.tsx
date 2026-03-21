@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Send, Paperclip, Smile } from 'lucide-react';
@@ -7,14 +7,20 @@ interface MessageInputProps {
   onSendMessage: (message: string) => void;
   disabled?: boolean;
   placeholder?: string;
+  initialValue?: string;
 }
 
 const MessageInput: React.FC<MessageInputProps> = ({
   onSendMessage,
   disabled = false,
-  placeholder = 'Type your message...'
+  placeholder = 'Type your message...',
+  initialValue = '',
 }) => {
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState(initialValue);
+
+  useEffect(() => {
+    setMessage(initialValue);
+  }, [initialValue]);
 
   const handleSend = () => {
     if (message.trim()) {

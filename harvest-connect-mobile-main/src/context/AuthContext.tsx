@@ -8,6 +8,46 @@ import {
 
 export type { AuthMode, User, UserRole } from '@/context/GlobalStateContext';
 
+export const isProfileComplete = (user: User): boolean => {
+  if (user.role !== 'farmer') {
+    return true;
+  }
+
+  const hasCropTypes = (user.cropTypes ?? []).map((crop) => crop.trim()).filter(Boolean).length > 0;
+
+  return (
+    user.name.trim().length > 0 &&
+    (user.farmName ?? '').trim().length > 0 &&
+    user.location.trim().length > 0 &&
+    user.phone.trim().length > 0 &&
+    hasCropTypes
+  );
+};
+
+export const hasFarmerPaymentDetails = (user: User): boolean => {
+  if (user.role !== 'farmer') {
+    return true;
+  }
+
+  return (
+    (user.paymentDetails?.bankName ?? '').trim().length > 0 &&
+    (user.paymentDetails?.accountNumber ?? '').trim().length > 0 &&
+    (user.paymentDetails?.ifscOrUpi ?? '').trim().length > 0
+  );
+};
+
+export const hasBuyerPaymentDetails = (user: User): boolean => {
+  if (user.role !== 'buyer') {
+    return true;
+  }
+
+  return (
+    (user.paymentDetails?.bankName ?? '').trim().length > 0 &&
+    (user.paymentDetails?.accountNumber ?? '').trim().length > 0 &&
+    (user.paymentDetails?.ifscOrUpi ?? '').trim().length > 0
+  );
+};
+
 export interface AuthContextType {
   currentUser: User | null;
   selectedRole: UserRole | null;

@@ -1,9 +1,11 @@
 import React, { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { useGlobalState } from '@/context/GlobalStateContext';
 import NotificationBell, { Notification } from '@/components/Notifications/NotificationBell';
 
 const NotificationsPage: React.FC = () => {
+  const navigate = useNavigate();
   const {
     currentUser,
     getNotificationsByUser,
@@ -49,7 +51,7 @@ const NotificationsPage: React.FC = () => {
 
   const handleNotificationClick = (notification: Notification) => {
     if (notification.actionUrl) {
-      window.location.hash = notification.actionUrl;
+      navigate(notification.actionUrl);
     }
   };
 

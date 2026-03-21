@@ -4,21 +4,68 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { CheckCircle, Search, Zap, Heart, ShoppingCart, TrendingUp } from 'lucide-react';
+import { CheckCircle, Search, Zap, Heart, ShoppingCart, TrendingUp, MapPin } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useGlobalState } from '@/context/GlobalStateContext';
 import { Product } from '@/lib/data';
 import FilterPanel, { FilterState } from '@/components/Buyer/FilterPanel';
 import BuyerProductCard from '@/components/Buyer/BuyerProductCard';
 
-const getFarmerDetails = (farmerId: string, farmerName: string) => {
-  const farmerProfiles: Record<string, { name: string; rating: number; reviews: number }> = {
-    farmer1: { name: 'Green Valley Farms', rating: 4.8, reviews: 124 },
-    farmer2: { name: 'Honey Sweet Farm', rating: 4.9, reviews: 98 },
-    farmer3: { name: 'Organic Harvest', rating: 4.6, reviews: 76 },
-  };
+const getStock = (product: Product) => product.stock ?? product.quantity;
 
-  return farmerProfiles[farmerId] ?? { name: farmerName, rating: 4.5, reviews: 24 };
+const parseCoordinates = (value: string): { lat: number; lon: number } | null => {
+  const bracketMatch = value.match(/\((-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)\)/);
+  const rawMatch = value.match(/(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/);
+  const match = bracketMatch ?? rawMatch;
+
+  if (!match) {
+    return null;
+  }
+
+  const lat = Number(match[1]);
+  const lon = Number(match[2]);
+  if (Number.isNaN(lat) || Number.isNaN(lon)) {
+    return null;
+  }
+
+  return { lat, lon };
+};
+
+const calculateDistanceKm = (
+  from: { lat: number; lon: number },
+  to: { lat: number; lon: number }
+) => {
+  const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
+  const earthRadiusKm = 6371;
+  const dLat = toRadians(to.lat - from.lat);
+  const dLon = toRadians(to.lon - from.lon);
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRadians(from.lat)) * Math.cos(toRadians(to.lat)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return earthRadiusKm * c;
+};
+
+const getFarmerCoordinates = (
+  farmerId: string,
+  users: Array<{ id: string; farmerOnboarding?: { farmLocation?: { latitude: number; longitude: number } } }>,
+  products: Product[]
+) => {
+  const farmerUser = users.find((entry) => entry.id === farmerId);
+  const fromOnboarding = farmerUser?.farmerOnboarding?.farmLocation;
+  if (fromOnboarding) {
+    return { lat: fromOnboarding.latitude, lon: fromOnboarding.longitude };
+  }
+
+  const firstFarmerProduct = products.find((item) => item.farmerId === farmerId);
+  if (!firstFarmerProduct) {
+    return null;
+  }
+
+  return parseCoordinates(firstFarmerProduct.location);
 };
 
 const BuyerMarketplacePanel: React.FC = () => {
@@ -27,10 +74,12 @@ const BuyerMarketplacePanel: React.FC = () => {
   const {
     products,
     orders,
+    users,
     favoriteProductIds,
     toggleFavoriteProduct,
     isFavoriteProduct,
-    placeOrder,
+    addToCart,
+    cartItems,
   } = useGlobalState();
 
   const [filters, setFilters] = useState<FilterState>({
@@ -38,6 +87,7 @@ const BuyerMarketplacePanel: React.FC = () => {
     category: 'all',
     priceRange: [0, 500],
     location: '',
+    distanceKm: 'all',
     sortBy: 'popular',
   });
   const [successMessage, setSuccessMessage] = useState('');
@@ -50,7 +100,7 @@ const BuyerMarketplacePanel: React.FC = () => {
       result = result.filter(
         (product) =>
           product.name.toLowerCase().includes(search) ||
-          product.description.toLowerCase().includes(search) ||
+          product.farmerName.toLowerCase().includes(search) ||
           product.location.toLowerCase().includes(search)
       );
     }
@@ -65,6 +115,22 @@ const BuyerMarketplacePanel: React.FC = () => {
 
     if (filters.location) {
       result = result.filter((product) => product.location.includes(filters.location));
+    }
+
+    if (filters.distanceKm !== 'all' && currentUser?.location) {
+      const buyerCoords = parseCoordinates(currentUser.location);
+      const maxDistance = Number(filters.distanceKm);
+
+      if (buyerCoords && !Number.isNaN(maxDistance)) {
+        result = result.filter((product) => {
+          const productCoords = parseCoordinates(product.location);
+          if (!productCoords) {
+            return false;
+          }
+
+          return calculateDistanceKm(buyerCoords, productCoords) <= maxDistance;
+        });
+      }
     }
 
     switch (filters.sortBy) {
@@ -91,6 +157,54 @@ const BuyerMarketplacePanel: React.FC = () => {
     return result;
   }, [filters, products]);
 
+  const buyerCoords = useMemo(() => {
+    if (!currentUser?.location) {
+      return null;
+    }
+
+    return parseCoordinates(currentUser.location);
+  }, [currentUser?.location]);
+
+  const nearbyFarmers = useMemo(() => {
+    const farmersWithProducts = users.filter((entry) => entry.role === 'farmer').map((farmer) => {
+      const farmerProducts = products.filter((item) => item.farmerId === farmer.id);
+      const coordinates = getFarmerCoordinates(farmer.id, users, products);
+      const distance = buyerCoords && coordinates ? calculateDistanceKm(buyerCoords, coordinates) : null;
+
+      const totalReviews = farmerProducts.reduce((sum, item) => sum + (item.reviews ?? 0), 0);
+      const weightedRating = farmerProducts.reduce(
+        (sum, item) => sum + (item.rating ?? 0) * (item.reviews ?? 0),
+        0
+      );
+
+      return {
+        id: farmer.id,
+        name: farmer.farmName || farmer.name,
+        location: farmer.location,
+        productsCount: farmerProducts.length,
+        averageRating: totalReviews > 0 ? weightedRating / totalReviews : 0,
+        totalReviews,
+        distance,
+        coordinates,
+      };
+    });
+
+    return farmersWithProducts
+      .filter((farmer) => farmer.productsCount > 0)
+      .filter((farmer) => farmer.distance === null || farmer.distance <= 50)
+      .sort((left, right) => {
+        const leftDistance = left.distance ?? Number.POSITIVE_INFINITY;
+        const rightDistance = right.distance ?? Number.POSITIVE_INFINITY;
+        return leftDistance - rightDistance;
+      })
+      .slice(0, 6);
+  }, [buyerCoords, products, users]);
+
+  const mapCenter = nearbyFarmers.find((farmer) => farmer.coordinates)?.coordinates ?? buyerCoords;
+  const mapSrc = mapCenter
+    ? `https://maps.google.com/maps?q=${mapCenter.lat},${mapCenter.lon}&z=11&output=embed`
+    : '';
+
   const buyerOrders = useMemo(
     () => orders.filter((order) => order.buyerId === currentUser?.id),
     [orders, currentUser?.id]
@@ -99,18 +213,31 @@ const BuyerMarketplacePanel: React.FC = () => {
   const stats = {
     totalProducts: products.length,
     favorites: favoriteProductIds.length,
-    orders: buyerOrders.length,
-    availableProducts: products.filter((product) => product.quantity > 0).length,
+    cartItems: cartItems.reduce((sum, item) => sum + item.quantity, 0),
+    availableProducts: products.filter((product) => getStock(product) > 0).length,
   };
 
-  const handlePlaceOrder = (product: Product, quantity: number) => {
-    placeOrder(product, quantity);
-    setSuccessMessage(`Order placed for ${quantity} ${product.unit} of ${product.name}.`);
+  const handleAddToCart = (productId: string, quantity: number) => {
+    addToCart(productId, quantity);
+    const addedProduct = products.find((product) => product.id === productId);
+    if (addedProduct) {
+      setSuccessMessage(`Added ${quantity} ${addedProduct.unit} of ${addedProduct.name} to cart.`);
+    }
     window.setTimeout(() => setSuccessMessage(''), 3000);
   };
 
   const handleToggleFavorite = (productId: string) => {
     toggleFavoriteProduct(productId);
+  };
+
+  const getFarmerDetails = (farmerId: string, farmerName: string) => {
+    const farmer = nearbyFarmers.find((entry) => entry.id === farmerId);
+
+    return {
+      name: farmer?.name ?? farmerName,
+      rating: farmer?.averageRating ? Number(farmer.averageRating.toFixed(1)) : 4.5,
+      reviews: farmer?.totalReviews ?? 0,
+    };
   };
 
   return (
@@ -142,8 +269,8 @@ const BuyerMarketplacePanel: React.FC = () => {
         </Card>
         <Card>
           <CardContent className="pt-4">
-            <p className="text-xs text-gray-600">Orders</p>
-            <p className="text-2xl font-bold text-blue-600 mt-1">{stats.orders}</p>
+            <p className="text-xs text-gray-600">Cart Items</p>
+            <p className="text-2xl font-bold text-blue-600 mt-1">{stats.cartItems}</p>
           </CardContent>
         </Card>
         <Card>
@@ -162,16 +289,67 @@ const BuyerMarketplacePanel: React.FC = () => {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {products
-              .filter((product) => product.quantity > 0)
+              .filter((product) => getStock(product) > 0)
               .slice(0, 4)
               .map((product) => (
                 <div key={product.id} className="bg-white p-3 rounded-lg border border-green-200">
                   <p className="font-semibold text-gray-900 text-sm">{product.name}</p>
                   <p className="text-sm text-gray-600">₹{product.price}/{product.unit}</p>
-                  <p className="text-xs text-green-600 font-medium mt-1">{product.quantity} available</p>
+                  <p className="text-xs text-green-600 font-medium mt-1">{getStock(product)} in stock</p>
                 </div>
               ))}
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-blue-200 bg-gradient-to-r from-blue-50 to-cyan-50">
+        <CardContent className="pt-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-gray-900">Nearby Farmers</h2>
+              <p className="text-sm text-gray-600">Showing farmers near your current location.</p>
+            </div>
+            <Button variant="outline" onClick={() => navigate('/location')}>
+              View Full Map
+            </Button>
+          </div>
+
+          {nearbyFarmers.length > 0 ? (
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <div className="space-y-2">
+                {nearbyFarmers.map((farmer) => (
+                  <div key={farmer.id} className="rounded-lg border bg-white p-3">
+                    <p className="font-semibold text-gray-900">{farmer.name}</p>
+                    <p className="text-sm text-gray-600">{farmer.location}</p>
+                    <div className="mt-1 flex items-center gap-3 text-xs text-gray-600">
+                      <span>{farmer.productsCount} products</span>
+                      <span>⭐ {farmer.averageRating > 0 ? farmer.averageRating.toFixed(1) : 'N/A'}</span>
+                      {farmer.distance !== null && (
+                        <span className="flex items-center gap-1 text-blue-700">
+                          <MapPin className="h-3 w-3" />
+                          {farmer.distance.toFixed(1)} km
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="rounded-lg overflow-hidden border h-72 bg-white">
+                {mapSrc ? (
+                  <iframe title="Nearby farmers map" src={mapSrc} className="h-full w-full" loading="lazy" />
+                ) : (
+                  <div className="h-full flex items-center justify-center text-sm text-gray-600">
+                    Enable location coordinates to view map.
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-lg border border-dashed bg-white p-6 text-center text-sm text-gray-600">
+              No nearby farmers with live product listings found yet.
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -181,7 +359,7 @@ const BuyerMarketplacePanel: React.FC = () => {
         <div className="relative mb-6">
           <Search className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
           <Input
-            placeholder="Search products by name, description, or location..."
+            placeholder="Search crops, farmers, location..."
             value={filters.searchTerm}
             onChange={(e) => setFilters({ ...filters, searchTerm: e.target.value })}
             className="pl-10 h-12 text-base"
@@ -206,7 +384,7 @@ const BuyerMarketplacePanel: React.FC = () => {
                       key={product.id}
                       product={product}
                       farmer={getFarmerDetails(product.farmerId, product.farmerName)}
-                      onPlaceOrder={handlePlaceOrder}
+                      onAddToCart={handleAddToCart}
                       onViewDetails={(selectedProduct) => navigate(`/product/${selectedProduct.id}`)}
                       isFavorite={isFavoriteProduct(product.id)}
                       onToggleFavorite={handleToggleFavorite}
@@ -232,6 +410,7 @@ const BuyerMarketplacePanel: React.FC = () => {
                     category: 'all',
                     priceRange: [0, 500],
                     location: '',
+                    distanceKm: 'all',
                     sortBy: 'popular',
                   })}
                 >
@@ -255,7 +434,9 @@ const BuyerMarketplacePanel: React.FC = () => {
                 <div key={order.id} className="flex items-center justify-between rounded-lg border p-3">
                   <div>
                     <p className="font-medium text-gray-900">{order.productName}</p>
+                    <p className="text-sm text-gray-600">Farmer: {order.farmerName}</p>
                     <p className="text-sm text-gray-600">Qty {order.quantity} · {order.status}</p>
+                    <p className="text-xs text-gray-500">Order ID: {order.id}</p>
                   </div>
                   <p className="font-semibold text-gray-900">₹{order.totalPrice}</p>
                 </div>

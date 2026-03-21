@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Edit, Trash2, Eye, ShoppingCart, MapPin } from 'lucide-react';
 import { Product } from './AddProductForm';
 
@@ -10,6 +11,7 @@ interface ProductCardProps {
   onEdit?: (product: Product) => void;
   onDelete?: (productId: string) => void;
   onView?: (product: Product) => void;
+  onUpdateStock?: (productId: string, stock: number) => void;
   isFarmerView?: boolean;
 }
 
@@ -18,6 +20,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
   onEdit,
   onDelete,
   onView,
+  onUpdateStock,
   isFarmerView = true
 }) => {
   const categoryLabels: Record<string, string> = {
@@ -25,6 +28,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
     fruits: 'Fruits',
     grains: 'Grains',
     dairy: 'Dairy',
+    milk: 'Milk',
     meat: 'Meat & Poultry',
     honey: 'Honey & Spices',
     organic: 'Organic',
@@ -36,14 +40,32 @@ const ProductCard: React.FC<ProductCardProps> = ({
     fruits: 'bg-red-100 text-red-700',
     grains: 'bg-yellow-100 text-yellow-700',
     dairy: 'bg-blue-100 text-blue-700',
+    milk: 'bg-cyan-100 text-cyan-700',
     meat: 'bg-purple-100 text-purple-700',
     honey: 'bg-orange-100 text-orange-700',
     organic: 'bg-emerald-100 text-emerald-700',
     other: 'bg-gray-100 text-gray-700'
   };
 
-  const stockStatus = product.quantity > 10 ? 'In Stock' : product.quantity > 0 ? 'Low Stock' : 'Out of Stock';
-  const stockColor = product.quantity > 10 ? 'bg-green-100 text-green-700' : product.quantity > 0 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700';
+  const availableStock = product.stock ?? product.quantity;
+  const [stockInput, setStockInput] = useState(String(availableStock));
+
+  useEffect(() => {
+    setStockInput(String(availableStock));
+  }, [availableStock]);
+
+  const stockStatus = availableStock > 10 ? 'In Stock' : availableStock > 0 ? 'Low Stock' : 'Out of Stock';
+  const stockColor = availableStock > 10 ? 'bg-green-100 text-green-700' : availableStock > 0 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700';
+
+  const applyStockUpdate = () => {
+    const parsed = Number.parseInt(stockInput, 10);
+    if (Number.isNaN(parsed) || parsed < 0) {
+      setStockInput(String(availableStock));
+      return;
+    }
+
+    onUpdateStock?.(product.id, parsed);
+  };
 
   return (
     <Card className="overflow-hidden hover:shadow-lg transition-shadow">
@@ -94,8 +116,8 @@ const ProductCard: React.FC<ProductCardProps> = ({
               </p>
             </div>
             <div className="text-right">
-              <p className="text-sm text-gray-600">Available</p>
-              <p className="text-lg font-semibold text-gray-900">{product.quantity} {product.unit}</p>
+              <p className="text-sm text-gray-600">Stock</p>
+              <p className="text-lg font-semibold text-gray-900">{availableStock} {product.unit}</p>
             </div>
           </div>
 
@@ -143,6 +165,23 @@ const ProductCard: React.FC<ProductCardProps> = ({
                   <Eye className="h-4 w-4" />
                   View Listing
                 </Button>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min="0"
+                    value={stockInput}
+                    onChange={(event) => setStockInput(event.target.value)}
+                    className="h-8"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="whitespace-nowrap"
+                    onClick={applyStockUpdate}
+                  >
+                    Update Stock
+                  </Button>
+                </div>
               </>
             ) : (
               // Buyer view

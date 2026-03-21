@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from '@/components/ui/textarea';
 import {
   Bell,
   Lock,
@@ -24,7 +25,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user }) => {
   const [profileForm, setProfileForm] = useState({
     name: user.name,
     email: user.email,
+    phone: user.phone,
     location: user.location,
+    farmName: user.farmName ?? `${user.name}'s Farm`,
+    farmDetails: user.farmDetails ?? '',
   });
   const [statusMessage, setStatusMessage] = useState('');
 
@@ -32,15 +36,21 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user }) => {
     setProfileForm({
       name: user.name,
       email: user.email,
+      phone: user.phone,
       location: user.location,
+      farmName: user.farmName ?? `${user.name}'s Farm`,
+      farmDetails: user.farmDetails ?? '',
     });
-  }, [user.name, user.email, user.location]);
+  }, [user.name, user.email, user.phone, user.location, user.farmName, user.farmDetails]);
 
   const handleSaveProfile = () => {
     updateUser(user.id, {
       name: profileForm.name.trim() || user.name,
       email: profileForm.email.trim() || user.email,
+      phone: profileForm.phone.trim() || user.phone,
       location: profileForm.location.trim() || user.location,
+      farmName: user.role === 'farmer' ? (profileForm.farmName.trim() || `${user.name}'s Farm`) : undefined,
+      farmDetails: user.role === 'farmer' ? profileForm.farmDetails.trim() : undefined,
     });
 
     setStatusMessage('Profile saved successfully.');
@@ -115,6 +125,35 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user }) => {
                   className="mt-2"
                 />
               </div>
+              <div>
+                <Label>Phone</Label>
+                <Input
+                  value={profileForm.phone}
+                  onChange={(event) => setProfileForm((prev) => ({ ...prev, phone: event.target.value }))}
+                  className="mt-2"
+                />
+              </div>
+              {user.role === 'farmer' && (
+                <>
+                  <div>
+                    <Label>Farm Name</Label>
+                    <Input
+                      value={profileForm.farmName}
+                      onChange={(event) => setProfileForm((prev) => ({ ...prev, farmName: event.target.value }))}
+                      className="mt-2"
+                    />
+                  </div>
+                  <div>
+                    <Label>Farm Bio</Label>
+                    <Textarea
+                      value={profileForm.farmDetails}
+                      onChange={(event) => setProfileForm((prev) => ({ ...prev, farmDetails: event.target.value }))}
+                      className="mt-2"
+                      placeholder="Add details about your farm and produce."
+                    />
+                  </div>
+                </>
+              )}
               <Button onClick={handleSaveProfile} className="w-full bg-green-600 hover:bg-green-700">Save Changes</Button>
             </CardContent>
           </Card>

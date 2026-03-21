@@ -21,6 +21,24 @@ export interface ValidationResult {
   errors: ValidationError[];
 }
 
+export interface FarmerSignupValidationInput {
+  name: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+  phone: string;
+  otpVerified: boolean;
+  address: string;
+  farmLatitude: string;
+  farmLongitude: string;
+  idProofFileName: string;
+  idProofFileSize: number;
+  bankName: string;
+  accountNumber: string;
+  ifscCode: string;
+  upiId: string;
+}
+
 // Validate email
 export const validateEmail = (email: string): string | null => {
   if (!email) {
@@ -107,6 +125,122 @@ export const validatePasswordMatch = (password: string, confirmPassword: string)
     return 'Passwords do not match';
   }
   return null;
+};
+
+const validateCoordinates = (latitude: string, longitude: string): ValidationError[] => {
+  const errors: ValidationError[] = [];
+  const lat = Number(latitude);
+  const lng = Number(longitude);
+
+  if (Number.isNaN(lat) || lat < -90 || lat > 90) {
+    errors.push({ field: 'farmLatitude', message: 'Enter a valid latitude between -90 and 90' });
+  }
+
+  if (Number.isNaN(lng) || lng < -180 || lng > 180) {
+    errors.push({ field: 'farmLongitude', message: 'Enter a valid longitude between -180 and 180' });
+  }
+
+  return errors;
+};
+
+const validateIdProof = (fileName: string, fileSize: number): ValidationError[] => {
+  const errors: ValidationError[] = [];
+  const allowedExtension = /\.(pdf|png|jpg|jpeg)$/i;
+  const maxSizeInBytes = 5 * 1024 * 1024;
+
+  if (!fileName.trim()) {
+    errors.push({ field: 'idProof', message: 'ID proof upload is required' });
+    return errors;
+  }
+
+  if (!allowedExtension.test(fileName)) {
+    errors.push({ field: 'idProof', message: 'Upload PDF, PNG, JPG, or JPEG file only' });
+  }
+
+  if (fileSize <= 0 || fileSize > maxSizeInBytes) {
+    errors.push({ field: 'idProof', message: 'ID proof must be less than 5 MB' });
+  }
+
+  return errors;
+};
+
+const validatePaymentDetails = (
+  bankName: string,
+  accountNumber: string,
+  ifscCode: string,
+  upiId: string
+): ValidationError[] => {
+  const errors: ValidationError[] = [];
+  const hasBankDetails = bankName.trim() || accountNumber.trim() || ifscCode.trim();
+  const hasUpi = upiId.trim().length > 0;
+
+  if (!hasBankDetails && !hasUpi) {
+    errors.push({ field: 'paymentDetails', message: 'Provide bank details or a UPI ID' });
+    return errors;
+  }
+
+  if (hasBankDetails) {
+    if (!bankName.trim()) {
+      errors.push({ field: 'bankName', message: 'Bank name is required when adding bank details' });
+    }
+
+    if (!/^\d{9,18}$/.test(accountNumber.trim())) {
+      errors.push({ field: 'accountNumber', message: 'Account number must be 9 to 18 digits' });
+    }
+
+    if (!/^[A-Za-z]{4}0[A-Za-z0-9]{6}$/.test(ifscCode.trim())) {
+      errors.push({ field: 'ifscCode', message: 'Enter a valid IFSC code (e.g. HDFC0001234)' });
+    }
+  }
+
+  if (hasUpi && !/^[a-zA-Z0-9._-]{2,}@[a-zA-Z]{2,}$/.test(upiId.trim())) {
+    errors.push({ field: 'upiId', message: 'Enter a valid UPI ID (e.g. farmer@upi)' });
+  }
+
+  return errors;
+};
+
+export const validateFarmerSignupForm = (formData: FarmerSignupValidationInput): ValidationResult => {
+  const errors: ValidationError[] = [];
+
+  const nameError = validateName(formData.name);
+  if (nameError) errors.push({ field: 'name', message: nameError });
+
+  const emailError = validateEmail(formData.email);
+  if (emailError) errors.push({ field: 'email', message: emailError });
+
+  const passwordError = validatePassword(formData.password);
+  if (passwordError) errors.push({ field: 'password', message: passwordError });
+
+  const passwordMatchError = validatePasswordMatch(formData.password, formData.confirmPassword);
+  if (passwordMatchError) errors.push({ field: 'confirmPassword', message: passwordMatchError });
+
+  const phoneError = validatePhone(formData.phone);
+  if (phoneError) errors.push({ field: 'phone', message: phoneError });
+
+  if (!formData.otpVerified) {
+    errors.push({ field: 'otp', message: 'Verify phone number with OTP before continuing' });
+  }
+
+  if (!formData.address.trim() || formData.address.trim().length < 10) {
+    errors.push({ field: 'address', message: 'Address must be at least 10 characters' });
+  }
+
+  errors.push(...validateCoordinates(formData.farmLatitude, formData.farmLongitude));
+  errors.push(...validateIdProof(formData.idProofFileName, formData.idProofFileSize));
+  errors.push(
+    ...validatePaymentDetails(
+      formData.bankName,
+      formData.accountNumber,
+      formData.ifscCode,
+      formData.upiId
+    )
+  );
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+  };
 };
 
 // Validate signup form

@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Search, MessageCircle } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { dummyUsers } from '@/lib/data';
 import { useGlobalState } from '@/context/GlobalStateContext';
 import ChatScreen, { ChatParticipant } from './ChatScreen';
 import { ChatMessage } from './ChatBubble';
@@ -40,13 +40,40 @@ const formatTime = (timestamp: string) =>
 const ChatHub: React.FC<ChatHubProps> = ({ title, subtitle }) => {
   const {
     currentUser,
+    users,
     messages,
     addMessage,
     getConversationMessages,
     markMessagesAsRead,
   } = useGlobalState();
+  const [searchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPartnerId, setSelectedPartnerId] = useState<string | null>(null);
+
+  const contextPartnerId = searchParams.get('partnerId');
+  const contextOrderId = searchParams.get('orderId');
+  const contextProductName = searchParams.get('productName');
+  const contextDraft = searchParams.get('draft') ?? '';
+
+  const contactableUsers = useMemo(() => {
+    if (!currentUser) {
+      return [];
+    }
+
+    return users
+      .filter((entry) => {
+        if (entry.id === currentUser.id || entry.isActive === false) {
+          return false;
+        }
+
+        if (currentUser.role === 'admin') {
+          return entry.role !== 'admin';
+        }
+
+        return entry.role !== currentUser.role;
+      })
+      .sort((left, right) => left.name.localeCompare(right.name));
+  }, [currentUser, users]);
 
   const conversationSummaries = useMemo<ConversationSummary[]>(() => {
     if (!currentUser) {
@@ -62,7 +89,7 @@ const ChatHub: React.FC<ChatHubProps> = ({ title, subtitle }) => {
     relevantMessages.forEach((message) => {
       const isOutgoing = message.senderId === currentUser.id;
       const partnerId = isOutgoing ? message.recipientId : message.senderId;
-      const partner = dummyUsers.find((user) => user.id === partnerId);
+      const partner = users.find((stateUser) => stateUser.id === partnerId);
       const existing = conversationMap.get(partnerId);
 
       if (!existing || new Date(message.timestamp).getTime() >= new Date(existing.lastMessageTime).getTime()) {
@@ -97,13 +124,46 @@ const ChatHub: React.FC<ChatHubProps> = ({ title, subtitle }) => {
         new Date(leftLast?.timestamp ?? 0).getTime()
       );
     });
-  }, [currentUser, getConversationMessages, messages]);
+  }, [currentUser, getConversationMessages, messages, users]);
+
+  const conversationCandidates = useMemo<ConversationSummary[]>(() => {
+    const mergedById = new Map<string, ConversationSummary>();
+    conversationSummaries.forEach((conversation) => {
+      mergedById.set(conversation.id, conversation);
+    });
+
+    contactableUsers.forEach((entry) => {
+      if (mergedById.has(entry.id)) {
+        return;
+      }
+
+      mergedById.set(entry.id, {
+        id: entry.id,
+        name: entry.name,
+        location: entry.location,
+        avatar: buildAvatar(entry.name),
+        rating: undefined,
+        responseTime: undefined,
+        isOnline: entry.role === 'farmer',
+        unreadCount: 0,
+        lastMessage: `Start a conversation with this ${entry.role}.`,
+        lastMessageTime: '',
+      });
+    });
+
+    return Array.from(mergedById.values());
+  }, [contactableUsers, conversationSummaries]);
 
   useEffect(() => {
-    if (!selectedPartnerId && conversationSummaries.length > 0) {
-      setSelectedPartnerId(conversationSummaries[0].id);
+    if (contextPartnerId) {
+      setSelectedPartnerId(contextPartnerId);
+      return;
     }
-  }, [conversationSummaries, selectedPartnerId]);
+
+    if (!selectedPartnerId && conversationCandidates.length > 0) {
+      setSelectedPartnerId(conversationCandidates[0].id);
+    }
+  }, [contextPartnerId, conversationCandidates, selectedPartnerId]);
 
   useEffect(() => {
     if (!currentUser || !selectedPartnerId) {
@@ -129,14 +189,42 @@ const ChatHub: React.FC<ChatHubProps> = ({ title, subtitle }) => {
     );
   }
 
-  const filteredConversations = conversationSummaries.filter((conversation) =>
+  const filteredConversations = conversationCandidates.filter((conversation) =>
     conversation.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const selectedConversation =
+  const selectedConversationFromList =
     filteredConversations.find((conversation) => conversation.id === selectedPartnerId) ??
     filteredConversations[0] ??
     null;
+
+  const selectedConversation = useMemo(() => {
+    if (selectedConversationFromList) {
+      return selectedConversationFromList;
+    }
+
+    if (!selectedPartnerId) {
+      return null;
+    }
+
+    const partnerUser = users.find((user) => user.id === selectedPartnerId);
+    if (!partnerUser) {
+      return null;
+    }
+
+    return {
+      id: partnerUser.id,
+      name: partnerUser.name,
+      location: partnerUser.location,
+      avatar: buildAvatar(partnerUser.name),
+      rating: undefined,
+      responseTime: undefined,
+      isOnline: partnerUser.role === 'farmer',
+      unreadCount: 0,
+      lastMessage: '',
+      lastMessageTime: '',
+    };
+  }, [selectedConversationFromList, selectedPartnerId, users]);
 
   const threadMessages: ChatMessage[] = selectedConversation
     ? getConversationMessages(currentUser.id, selectedConversation.id).map((message) => ({
@@ -247,6 +335,12 @@ const ChatHub: React.FC<ChatHubProps> = ({ title, subtitle }) => {
               participant={selectedConversation}
               messages={threadMessages}
               onSendMessage={handleSendMessage}
+              initialMessage={selectedConversation.id === contextPartnerId ? contextDraft : ''}
+              contextInfo={
+                selectedConversation.id === contextPartnerId && contextOrderId
+                  ? `Order context: #${contextOrderId}${contextProductName ? ` · ${contextProductName}` : ''}`
+                  : undefined
+              }
             />
           ) : (
             <Card className="h-full">

@@ -1,18 +1,15 @@
-import React, { useState } from 'react';
+import React, { useMemo } from 'react';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Edit,
-  Star,
   MapPin,
   Phone,
   Mail,
-  Award,
-  TrendingUp
+  Award
 } from 'lucide-react';
 import { User } from '@/context/AuthContext';
+import { useGlobalState } from '@/context/GlobalStateContext';
 
 interface FarmerProfileSectionProps {
   user: User;
@@ -23,15 +20,22 @@ const FarmerProfileSection: React.FC<FarmerProfileSectionProps> = ({
   user,
   onEditProfile
 }) => {
-  const farmerStats = {
-    totalListings: 12,
-    activeListings: 10,
-    totalSold: 45,
-    totalRevenue: '₹1,25,000',
-    rating: 4.8,
-    reviews: 24,
-    joinDate: '15 Mar 2025'
-  };
+  const { products, orders } = useGlobalState();
+
+  const farmerStats = useMemo(() => {
+    const myProducts = products.filter((product) => product.farmerId === user.id);
+    const myProductIds = new Set(myProducts.map((product) => product.id));
+    const myOrders = orders.filter((order) => myProductIds.has(order.productId));
+    const deliveredOrders = myOrders.filter((order) => order.status === 'delivered');
+
+    return {
+      totalListings: myProducts.length,
+      activeListings: myProducts.filter((product) => (product.stock ?? product.quantity ?? 0) > 0).length,
+      totalSold: deliveredOrders.reduce((sum, order) => sum + order.quantity, 0),
+      totalRevenue: deliveredOrders.reduce((sum, order) => sum + order.totalAmount, 0),
+      joinDate: user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A',
+    };
+  }, [orders, products, user.createdAt, user.id]);
 
   return (
     <Card>
@@ -45,17 +49,10 @@ const FarmerProfileSection: React.FC<FarmerProfileSectionProps> = ({
               </div>
               <div>
                 <h2 className="text-3xl font-bold text-gray-900">{user.name}</h2>
-                <p className="text-sm text-gray-600 mt-1">Certified Organic Farmer</p>
-                <div className="flex items-center gap-4 mt-3">
-                  <div className="flex items-center gap-1">
-                    <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                    <span className="font-semibold text-gray-900">{farmerStats.rating}</span>
-                    <span className="text-sm text-gray-600">({farmerStats.reviews} reviews)</span>
-                  </div>
-                </div>
+                <p className="text-sm text-gray-600 mt-1">{user.farmName || `${user.name}'s Farm`}</p>
               </div>
             </div>
-            <Button variant="outline" className="gap-2">
+            <Button variant="outline" className="gap-2" onClick={onEditProfile}>
               <Edit className="h-4 w-4" />
               Edit Profile
             </Button>
@@ -100,7 +97,7 @@ const FarmerProfileSection: React.FC<FarmerProfileSectionProps> = ({
             </div>
             <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
               <p className="text-xs text-gray-600 mb-1">Revenue</p>
-              <p className="text-2xl font-bold text-purple-700">{farmerStats.totalRevenue}</p>
+              <p className="text-2xl font-bold text-purple-700">₹{farmerStats.totalRevenue.toLocaleString()}</p>
               <p className="text-xs text-gray-500 mt-1">this month</p>
             </div>
             <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
@@ -114,8 +111,7 @@ const FarmerProfileSection: React.FC<FarmerProfileSectionProps> = ({
           <div className="border-t pt-4">
             <h3 className="font-semibold text-gray-900 mb-2">About</h3>
             <p className="text-gray-700">
-              Certified organic farmer with 15 years of experience growing fresh vegetables using sustainable farming methods. 
-              I pride myself on quality produce and direct farmer-to-consumer relationships. 
+              {user.farmDetails || 'Add your farm details in Profile or Settings to help buyers trust your produce and practices.'}
             </p>
           </div>
 
