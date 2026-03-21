@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useAuth, UserRole } from '@/context/AuthContext';
+import { useAuth, UserRole, type User } from '@/context/AuthContext';
 import EnhancedAuthForm from '@/components/EnhancedAuthForm';
 import RoleSelection from '@/components/RoleSelection';
 import RoleSelectionSignup from '@/components/RoleSelectionSignup';
@@ -50,7 +50,7 @@ const Index = () => {
     setViewState('auth-form');
   };
 
-  const handleAuthSuccess = (user: any) => {
+  const handleAuthSuccess = (user: User) => {
     setCurrentUser(user);
     // Navigation will be handled by the useEffect above
   };

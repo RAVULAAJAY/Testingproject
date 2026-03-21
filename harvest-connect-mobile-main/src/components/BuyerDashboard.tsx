@@ -81,7 +81,7 @@ const BuyerDashboard: React.FC<BuyerDashboardProps> = ({ user, onLogout }) => {
 
   useEffect(() => {
     // Filter and sort crops
-    let filtered = crops.filter(crop =>
+    const filtered = crops.filter(crop =>
       crop.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       crop.farmerLocation.toLowerCase().includes(searchTerm.toLowerCase())
     );

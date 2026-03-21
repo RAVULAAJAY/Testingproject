@@ -5,11 +5,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft } from 'lucide-react';
+import type { User } from '@/context/AuthContext';
 
 interface AuthFormProps {
   role: 'farmer' | 'buyer' | 'admin';
   mode: 'login' | 'signup';
-  onSuccess: (user: any) => void;
+  onSuccess: (user: User) => void;
   onBack: () => void;
   onModeChange: (mode: 'login' | 'signup') => void;
 }

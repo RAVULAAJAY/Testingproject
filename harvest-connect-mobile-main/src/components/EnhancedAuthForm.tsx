@@ -10,12 +10,12 @@ import {
   getPasswordStrengthLabel,
   ValidationError 
 } from '@/lib/validation';
-import { UserRole } from '@/context/AuthContext';
+import { UserRole, type User } from '@/context/AuthContext';
 
 interface EnhancedAuthFormProps {
   role: UserRole;
   mode: 'login' | 'signup';
-  onSuccess: (user: any) => void;
+  onSuccess: (user: User) => void;
   onBack: () => void;
   onModeChange: (mode: 'login' | 'signup') => void;
 }
@@ -269,7 +269,7 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({
                     <li className={/\d/.test(formData.password) ? 'text-green-600' : ''}>
                       ✓ One number
                     </li>
-                    <li className={/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(formData.password) ? 'text-green-600' : ''}>
+                    <li className={/[!@#$%^&*()_+=[\]{};':"\\|,.<>/?-]/.test(formData.password) ? 'text-green-600' : ''}>
                       ✓ One special character
                     </li>
                   </ul>

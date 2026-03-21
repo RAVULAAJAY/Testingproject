@@ -20,7 +20,13 @@ import BuyerProductCard from '@/components/Buyer/BuyerProductCard';
 import BuyerMarketplacePanel from '@/components/Buyer/BuyerMarketplacePanel';
 
 // Sample farmer data for products
-const sampleFarmers: Record<string, any> = {
+interface FarmerSummary {
+  name: string;
+  rating: number;
+  reviews: number;
+}
+
+const sampleFarmers: Record<string, FarmerSummary> = {
   farmer1: {
     name: 'Green Valley Farms',
     rating: 4.8,

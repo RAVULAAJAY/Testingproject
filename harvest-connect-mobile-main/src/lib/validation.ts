@@ -1,5 +1,6 @@
 // Email validation regex
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const SPECIAL_CHAR_REGEX = /[!@#$%^&*()_+=[\]{};':"\\|,.<>/?-]/;
 
 // Password requirements
 export const PASSWORD_REQUIREMENTS = {
@@ -53,7 +54,7 @@ export const validatePassword = (password: string): string | null => {
     return 'Password must contain at least one number';
   }
   
-  if (PASSWORD_REQUIREMENTS.requiresSpecialChars && !/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+  if (PASSWORD_REQUIREMENTS.requiresSpecialChars && !SPECIAL_CHAR_REGEX.test(password)) {
     return 'Password must contain at least one special character (!@#$%^&*)';
   }
   
@@ -79,7 +80,7 @@ export const validatePhone = (phone: string): string | null => {
   if (!phone) {
     return 'Phone number is required';
   }
-  const phoneRegex = /^[0-9\s\-\+\(\)]{7,}$/;
+  const phoneRegex = /^[0-9\s+()-]{7,}$/;
   if (!phoneRegex.test(phone)) {
     return 'Please enter a valid phone number';
   }
@@ -171,7 +172,7 @@ export const getPasswordStrength = (password: string): number => {
   if (/[A-Z]/.test(password)) strength += 20;
   if (/[a-z]/.test(password)) strength += 20;
   if (/\d/.test(password)) strength += 20;
-  if (/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) strength += 20;
+  if (SPECIAL_CHAR_REGEX.test(password)) strength += 20;
   
   return Math.min(strength, 100);
 };

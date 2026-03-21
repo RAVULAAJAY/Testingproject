@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Edit, Trash2, MessageCircle, LogOut, Camera } from 'lucide-react';
 import ChatDialog from './ChatDialog';
+import type { User } from '@/context/AuthContext';
 
 interface Crop {
   id: string;
@@ -34,7 +35,7 @@ interface Order {
 }
 
 interface FarmerDashboardProps {
-  user: any;
+  user: User;
   onLogout: () => void;
 }
 

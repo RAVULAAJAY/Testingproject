@@ -31,8 +31,37 @@ import { dummyUsers } from "./lib/data";
 
 const queryClient = new QueryClient();
 
+interface FarmerProfile {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  location: string;
+  rating: number;
+  reviews: number;
+  totalSales: number;
+  joinDate: string;
+  certifications: string[];
+  bio: string;
+}
+
+interface ProductRecord {
+  id: string;
+  name: string;
+  farmerId: string;
+  farmerName: string;
+  price: number;
+  quantity: number;
+  unit: string;
+  image: string;
+  location: string;
+  description: string;
+  category: string;
+  createdAt: Date;
+}
+
 // Sample farmer data
-const farmerDatabase: Record<string, any> = {
+const farmerDatabase: Record<string, FarmerProfile> = {
   farmer1: {
     id: 'farmer1',
     name: 'Green Valley Farms',
@@ -75,7 +104,7 @@ const farmerDatabase: Record<string, any> = {
 };
 
 // Sample products database
-const productDatabase: Record<string, { product: any; farmer: any }> = {
+const productDatabase: Record<string, { product: ProductRecord; farmer: FarmerProfile }> = {
   '1': {
     product: {
       id: '1',
@@ -120,7 +149,18 @@ const ProductDetailsPageWrapper = () => {
   
   const product = products.find((item) => item.id === id) ?? productDatabase[id as string]?.product;
   const farmerId = product?.farmerId ?? productDatabase[id as string]?.product?.farmerId;
-  const fallbackFarmer = farmerDatabase[farmerId ?? ''] ?? dummyUsers.find((user) => user.id === farmerId);
+  const fallbackFromDummy = dummyUsers.find((user) => user.id === farmerId);
+  const fallbackFarmer: Partial<FarmerProfile> | undefined =
+    farmerDatabase[farmerId ?? ''] ??
+    (fallbackFromDummy
+      ? {
+          id: fallbackFromDummy.id,
+          name: fallbackFromDummy.name,
+          email: fallbackFromDummy.email,
+          phone: fallbackFromDummy.phone ?? 'N/A',
+          location: fallbackFromDummy.location,
+        }
+      : undefined);
   const farmer = product
     ? {
         id: farmerId ?? product.farmerId,
@@ -128,12 +168,12 @@ const ProductDetailsPageWrapper = () => {
         email: fallbackFarmer?.email || 'farmer@example.com',
         phone: fallbackFarmer?.phone || 'N/A',
         location: product.location || fallbackFarmer?.location || 'Unknown',
-        rating: fallbackFarmer && 'rating' in fallbackFarmer ? (fallbackFarmer as any).rating : 4.5,
-        reviews: fallbackFarmer && 'reviews' in fallbackFarmer ? (fallbackFarmer as any).reviews : 24,
-        totalSales: fallbackFarmer && 'totalSales' in fallbackFarmer ? (fallbackFarmer as any).totalSales : 0,
-        joinDate: fallbackFarmer && 'joinDate' in fallbackFarmer ? (fallbackFarmer as any).joinDate : 'Recently joined',
-        certifications: fallbackFarmer && 'certifications' in fallbackFarmer ? (fallbackFarmer as any).certifications : [],
-        bio: fallbackFarmer && 'bio' in fallbackFarmer ? (fallbackFarmer as any).bio : 'Local farmer on the platform.',
+        rating: fallbackFarmer?.rating ?? 4.5,
+        reviews: fallbackFarmer?.reviews ?? 24,
+        totalSales: fallbackFarmer?.totalSales ?? 0,
+        joinDate: fallbackFarmer?.joinDate ?? 'Recently joined',
+        certifications: fallbackFarmer?.certifications ?? [],
+        bio: fallbackFarmer?.bio ?? 'Local farmer on the platform.',
       }
     : undefined;
   
