@@ -179,7 +179,7 @@ const FarmerManagementPanel: React.FC = () => {
     createdAt: existingProduct?.createdAt ?? new Date().toISOString(),
   });
 
-  const handleSaveProduct = (formProduct: Omit<FormProduct, 'id' | 'createdAt'>) => {
+  const handleSaveProduct = async (formProduct: Omit<FormProduct, 'id' | 'createdAt'>) => {
     if (!canUploadProducts) {
       setPaymentErrorMessage(getUploadBlockMessage());
       return;
@@ -188,12 +188,17 @@ const FarmerManagementPanel: React.FC = () => {
     const payload = buildProductPayload(formProduct, editingProduct ?? undefined);
     const wasEditing = Boolean(editingProduct);
 
-    if (wasEditing) {
-      updateProduct(editingProduct.id, payload);
-      showSuccess(`"${payload.name}" updated successfully.`);
-    } else {
-      addProduct(payload);
-      showSuccess(`"${payload.name}" added successfully.`);
+    try {
+      if (wasEditing) {
+        await updateProduct(editingProduct.id, payload);
+        showSuccess(`"${payload.name}" updated successfully.`);
+      } else {
+        await addProduct(payload);
+        showSuccess(`"${payload.name}" added successfully.`);
+      }
+    } catch (error) {
+      console.error('Product save failed', error);
+      showSuccess('Failed to save product, please try again.');
     }
 
     closeProductDialog();
