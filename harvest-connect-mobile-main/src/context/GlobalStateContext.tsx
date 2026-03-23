@@ -3,6 +3,7 @@ import {
   Product,
   Order,
 } from '@/lib/data';
+import * as api from '@/lib/api';
 
 export type UserRole = 'farmer' | 'buyer' | 'admin';
 export type AuthMode = 'login' | 'signup' | null;
@@ -294,45 +295,73 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({
     return isValidUser(storedUser) ? storedUser.role : null;
   });
 
-  const [products, setProducts] = useState<Product[]>(() => {
-    const savedProducts = readStoredValue<Product[]>('products');
-    return (savedProducts ?? []).map(normalizeProduct);
-  });
+  const [products, setProducts] = useState<Product[]>([]);
+  const [users, setUsers] = useState<User[]>([defaultAdminUser]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
 
-  const [users, setUsers] = useState<User[]>(() => {
-    const savedUsers = readStoredValue<User[]>('users');
-    return savedUsers ?? [defaultAdminUser];
-  });
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [favoriteProductIds, setFavoriteProductIds] = useState<string[]>([]);
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
-  const [orders, setOrders] = useState<Order[]>(() => {
-    const savedOrders = readStoredValue<Order[]>('orders');
-    return (savedOrders ?? []).map(normalizeOrder);
-  });
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [fetchedUsers, fetchedProducts, fetchedOrders, fetchedActivity, fetchedNotifications] = await Promise.all([
+          api.fetchUsers(),
+          api.fetchProducts(),
+          api.fetchOrders(),
+          api.fetchActivityLogs(),
+          Promise.resolve([]), // no notifications endpoint yet
+        ]);
 
-  const [messages, setMessages] = useState<Message[]>(() => {
-    const savedMessages = readStoredValue<Message[]>('messages');
-    return savedMessages ?? defaultMessages;
-  });
+        setUsers(fetchedUsers.length > 0 ? fetchedUsers : [defaultAdminUser]);
+        setProducts((prev) => {
+          if (fetchedProducts.length === 0 && prev.length > 0) {
+            return prev;
+          }
+          return fetchedProducts.map(normalizeProduct);
+        });
+        setOrders((prev) => {
+          if (fetchedOrders.length === 0 && prev.length > 0) {
+            return prev;
+          }
+          return fetchedOrders.map(normalizeOrder);
+        });
+        setActivityLogs((prev) => {
+          if (fetchedActivity.length === 0 && prev.length > 0) {
+            return prev;
+          }
+          return fetchedActivity;
+        });
+        setNotifications(fetchedNotifications);
+      } catch (error) {
+        console.error('Unable to load remote data', error);
+      }
+    };
 
-  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>(() => {
-    const savedActivityLogs = readStoredValue<ActivityLog[]>('activityLogs');
-    return savedActivityLogs ?? [];
-  });
+    loadData();
 
-  const [notifications, setNotifications] = useState<AppNotification[]>(() => {
-    const savedNotifications = readStoredValue<AppNotification[]>('notifications');
-    return savedNotifications ?? defaultNotifications;
-  });
+    const poll = setInterval(async () => {
+      try {
+        const [productsData, usersData, ordersData, activityData] = await Promise.all([
+          api.fetchProducts(),
+          api.fetchUsers(),
+          api.fetchOrders(),
+          api.fetchActivityLogs(),
+        ]);
+        setProducts(productsData.map(normalizeProduct));
+        setUsers(usersData.length > 0 ? usersData : [defaultAdminUser]);
+        setOrders(ordersData.map(normalizeOrder));
+        setActivityLogs(activityData);
+      } catch (e) {
+        console.warn('Polling error', e);
+      }
+    }, 3000);
 
-  const [favoriteProductIds, setFavoriteProductIds] = useState<string[]>(() => {
-    const savedFavorites = readStoredValue<string[]>('favoriteProductIds');
-    return savedFavorites ?? [];
-  });
-
-  const [cartItems, setCartItems] = useState<CartItem[]>(() => {
-    const savedCart = readStoredValue<CartItem[]>('cartItems');
-    return savedCart ?? [];
-  });
+    return () => clearInterval(poll);
+  }, []);
 
   const notifyAdmins = useCallback((
     title: string,
@@ -389,14 +418,14 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({
       }
 
       if (event.key === 'notifications') {
-
-              if (event.key === 'activityLogs') {
-                const nextActivityLogs = readStoredValue<ActivityLog[]>('activityLogs') ?? [];
-                setActivityLogs(nextActivityLogs);
-                return;
-              }
         const nextNotifications = readStoredValue<AppNotification[]>('notifications') ?? [];
         setNotifications(nextNotifications);
+        return;
+      }
+
+      if (event.key === 'activityLogs') {
+        const nextActivityLogs = readStoredValue<ActivityLog[]>('activityLogs') ?? [];
+        setActivityLogs(nextActivityLogs);
         return;
       }
 
@@ -431,6 +460,48 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({
     return () => window.removeEventListener('storage', handleStorage);
   }, []);
 
+  // Periodic sync of products, users, orders, and activity from backend API
+  useEffect(() => {
+    const pollData = async () => {
+      try {
+        const [fetchedUsers, fetchedProducts, fetchedOrders, fetchedActivity] = await Promise.all([
+          api.fetchUsers(),
+          api.fetchProducts(),
+          api.fetchOrders(),
+          api.fetchActivityLogs(),
+        ]);
+
+        setUsers(fetchedUsers.length > 0 ? fetchedUsers : [defaultAdminUser]);
+        setProducts((prev) => {
+          // Avoid flicker from transient empty responses while user already has products in view.
+          if (fetchedProducts.length === 0 && prev.length > 0) {
+            return prev;
+          }
+          return fetchedProducts.map(normalizeProduct);
+        });
+        setOrders((prev) => {
+          if (fetchedOrders.length === 0 && prev.length > 0) {
+            return prev;
+          }
+          return fetchedOrders.map(normalizeOrder);
+        });
+        setActivityLogs((prev) => {
+          if (fetchedActivity.length === 0 && prev.length > 0) {
+            return prev;
+          }
+          return fetchedActivity;
+        });
+      } catch (error) {
+        console.warn('Poll failed to fetch remote data', error);
+      }
+    };
+
+    pollData();
+    const pollInterval = setInterval(pollData, 3000);
+
+    return () => clearInterval(pollInterval);
+  }, []);
+
   const setCurrentUser = useCallback((user: User | null) => {
     setCurrentUserState(user);
 
@@ -458,68 +529,79 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({
     localStorage.removeItem('selectedRole');
   }, []);
 
-  const addActivityLog = useCallback((log: Omit<ActivityLog, 'id' | 'timestamp'> & { id?: string; timestamp?: string }) => {
-    setActivityLogs((prev) => {
-      const nextLog: ActivityLog = {
-        id: log.id ?? `activity_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
-        timestamp: log.timestamp ?? new Date().toISOString(),
-        userId: log.userId,
-        userName: log.userName,
-        userRole: log.userRole,
-        action: log.action,
-        targetType: log.targetType,
-        targetId: log.targetId,
-        details: log.details,
-      };
+  const addActivityLog = useCallback(async (log: Omit<ActivityLog, 'id' | 'timestamp'> & { id?: string; timestamp?: string }) => {
+    const nextLog: ActivityLog = {
+      id: log.id ?? `activity_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+      timestamp: log.timestamp ?? new Date().toISOString(),
+      userId: log.userId,
+      userName: log.userName,
+      userRole: log.userRole,
+      action: log.action,
+      targetType: log.targetType,
+      targetId: log.targetId,
+      details: log.details,
+    };
 
-      const updated = [nextLog, ...prev].slice(0, 500);
-      localStorage.setItem('activityLogs', JSON.stringify(updated));
-      return updated;
-    });
+    setActivityLogs((prev) => [nextLog, ...prev].slice(0, 500));
+
+    try {
+      await fetch('http://localhost:4000/api/activity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nextLog),
+      });
+    } catch (error) {
+      console.warn('Failed to persist activity log', error);
+    }
   }, []);
 
   const addNotification = useCallback((notification: AppNotification) => {
-    setNotifications((prev) => {
-      const updated = [notification, ...prev];
-      localStorage.setItem('notifications', JSON.stringify(updated));
-      return updated;
-    });
+    setNotifications((prev) => [notification, ...prev]);
+    // TODO: Add backend notification endpoint when needed
   }, []);
 
-  const upsertUser = useCallback((user: User) => {
-    const alreadyExists = users.some((entry) => entry.id === user.id);
+  const upsertUser = useCallback(async (user: User) => {
+    try {
+      const existing = users.find((entry) => entry.id === user.id);
 
-    setUsers((prev) => {
-      const existingIndex = prev.findIndex((entry) => entry.id === user.id);
-      const mergedUsers =
-        existingIndex >= 0
-          ? prev.map((entry) => (entry.id === user.id ? { ...entry, ...user } : entry))
-          : [user, ...prev];
+      let savedUser: User;
+      if (existing) {
+        savedUser = await api.updateUser(user.id, user as Partial<User>);
+      } else {
+        savedUser = await api.createUser(user as Omit<User, 'id'>);
+      }
 
-      localStorage.setItem('users', JSON.stringify(mergedUsers));
-      return mergedUsers;
-    });
+      setUsers((prev) => {
+        const existingIndex = prev.findIndex((entry) => entry.id === savedUser.id);
+        const mergedUsers =
+          existingIndex >= 0
+            ? prev.map((entry) => (entry.id === savedUser.id ? { ...entry, ...savedUser } : entry))
+            : [savedUser, ...prev];
 
-    localStorage.setItem(`user_${user.id}`, JSON.stringify(user));
-
-    if (!alreadyExists) {
-      const targetTab = user.role === 'farmer' ? 'farmers' : user.role === 'buyer' ? 'buyers' : 'overview';
-      notifyAdmins(
-        `New ${user.role} registered`,
-        () => `${user.name} has joined as a ${user.role}.`,
-        `/admin/dashboard?tab=${targetTab}`,
-        `notification_new_${user.role}`
-      );
-
-      addActivityLog({
-        userId: user.id,
-        userName: user.name,
-        userRole: user.role,
-        action: 'registered account',
-        targetType: 'auth',
-        targetId: user.id,
-        details: `${user.role} account created`,
+        return mergedUsers;
       });
+
+      if (!existing) {
+        const targetTab = user.role === 'farmer' ? 'farmers' : user.role === 'buyer' ? 'buyers' : 'overview';
+        notifyAdmins(
+          `New ${user.role} registered`,
+          () => `${user.name} has joined as a ${user.role}.`,
+          `/admin/dashboard?tab=${targetTab}`,
+          `notification_new_${user.role}`
+        );
+
+        addActivityLog({
+          userId: savedUser.id,
+          userName: savedUser.name,
+          userRole: savedUser.role,
+          action: 'registered account',
+          targetType: 'auth',
+          targetId: savedUser.id,
+          details: `${savedUser.role} account created`,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to upsert user', error);
     }
   }, [addActivityLog, notifyAdmins, users]);
 
@@ -702,46 +784,47 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({
   }, [addActivityLog, currentUser, updateUser, users]);
 
   // Product operations
-  const addProduct = useCallback((product: Product) => {
-        addActivityLog({
-          userId: product.farmerId,
-          userName: product.farmerName,
-          userRole: 'farmer',
-          action: 'uploaded product',
-          targetType: 'product',
-          targetId: product.id,
-          details: product.name,
-        });
-    setProducts((prev) => {
-      const updated = [...prev, normalizeProduct(product)];
-      localStorage.setItem('products', JSON.stringify(updated));
-      return updated;
-    });
+  const addProduct = useCallback(async (product: Product) => {
+    try {
+      const created = await api.createProduct(product);
+      setProducts((prev) => [...prev, normalizeProduct(created)]);
+      addActivityLog({
+        userId: created.farmerId,
+        userName: created.farmerName,
+        userRole: 'farmer',
+        action: 'uploaded product',
+        targetType: 'product',
+        targetId: created.id,
+        details: created.name,
+      });
 
-    notifyAdmins(
-      'New product uploaded',
-      () => `${product.farmerName} uploaded a new product: ${product.name}.`,
-      '/admin/dashboard?tab=products',
-      'notification_new_product'
-    );
+      notifyAdmins(
+        'New product uploaded',
+        () => `${created.farmerName} uploaded a new product: ${created.name}.`,
+        '/admin/dashboard?tab=products',
+        'notification_new_product'
+      );
+    } catch (error) {
+      console.error('Failed to add product', error);
+    }
   }, [addActivityLog, notifyAdmins]);
 
-  const updateProduct = useCallback((id: string, updates: Partial<Product>) => {
-    setProducts((prev) => {
-      const updated = prev.map((p) =>
-        p.id === id ? normalizeProduct({ ...p, ...updates }) : p
-      );
-      localStorage.setItem('products', JSON.stringify(updated));
-      return updated;
-    });
+  const updateProduct = useCallback(async (id: string, updates: Partial<Product>) => {
+    try {
+      const updatedProduct = await api.updateProductApi(id, updates as Partial<Product>);
+      setProducts((prev) => prev.map((p) => (p.id === id ? normalizeProduct(updatedProduct) : p)));
+    } catch (error) {
+      console.error('Failed to update product', error);
+    }
   }, []);
 
-  const deleteProduct = useCallback((id: string) => {
-    setProducts((prev) => {
-      const updated = prev.filter((p) => p.id !== id);
-      localStorage.setItem('products', JSON.stringify(updated));
-      return updated;
-    });
+  const deleteProduct = useCallback(async (id: string) => {
+    try {
+      await api.deleteProductApi(id);
+      setProducts((prev) => prev.filter((p) => p.id !== id));
+    } catch (error) {
+      console.error('Failed to delete product', error);
+    }
   }, []);
 
   const getProductById = useCallback(

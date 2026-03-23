@@ -155,7 +155,7 @@ const BuyerMarketplacePanel: React.FC = () => {
     }
 
     return result;
-  }, [filters, products]);
+  }, [filters, products, currentUser]);
 
   const buyerCoords = useMemo(() => {
     if (!currentUser?.location) {

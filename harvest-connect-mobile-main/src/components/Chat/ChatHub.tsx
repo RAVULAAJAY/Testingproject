@@ -198,33 +198,29 @@ const ChatHub: React.FC<ChatHubProps> = ({ title, subtitle }) => {
     filteredConversations[0] ??
     null;
 
-  const selectedConversation = useMemo(() => {
-    if (selectedConversationFromList) {
-      return selectedConversationFromList;
-    }
+  const selectedConversation = selectedConversationFromList
+    ? selectedConversationFromList
+    : selectedPartnerId
+    ? (() => {
+        const partnerUser = users.find((user) => user.id === selectedPartnerId);
+        if (!partnerUser) {
+          return null;
+        }
 
-    if (!selectedPartnerId) {
-      return null;
-    }
-
-    const partnerUser = users.find((user) => user.id === selectedPartnerId);
-    if (!partnerUser) {
-      return null;
-    }
-
-    return {
-      id: partnerUser.id,
-      name: partnerUser.name,
-      location: partnerUser.location,
-      avatar: buildAvatar(partnerUser.name),
-      rating: undefined,
-      responseTime: undefined,
-      isOnline: partnerUser.role === 'farmer',
-      unreadCount: 0,
-      lastMessage: '',
-      lastMessageTime: '',
-    };
-  }, [selectedConversationFromList, selectedPartnerId, users]);
+        return {
+          id: partnerUser.id,
+          name: partnerUser.name,
+          location: partnerUser.location,
+          avatar: buildAvatar(partnerUser.name),
+          rating: undefined,
+          responseTime: undefined,
+          isOnline: partnerUser.role === 'farmer',
+          unreadCount: 0,
+          lastMessage: '',
+          lastMessageTime: '',
+        };
+      })()
+    : null;
 
   const threadMessages: ChatMessage[] = selectedConversation
     ? getConversationMessages(currentUser.id, selectedConversation.id).map((message) => ({
