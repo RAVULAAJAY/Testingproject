@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { MapPin, Navigation, Search } from 'lucide-react';
+import { ExternalLink, MapPin, Navigation, Search } from 'lucide-react';
 import LocationSelector, { DEFAULT_LOCATION_OPTIONS, LocationOption } from '@/components/Location/LocationSelector';
 import NearbyFarmers, { Farmer } from '@/components/Location/NearbyFarmers';
 import { useGlobalState } from '@/context/GlobalStateContext';
@@ -54,6 +54,8 @@ const LocationPage: React.FC = () => {
     return allFarmers.filter((farmer) => normalizeLocationKey(farmer.location || '').includes(query));
   }, [allFarmers, selectedLocation]);
 
+  const mapUrl = selectedLocation ? buildMapsSearchUrl(selectedLocation) : '';
+
   const handleLocationChange = (location: LocationOption | null) => {
     setLocationError('');
     const nextLocation = location ? (location.coordinates ? location : DEFAULT_LOCATION_OPTIONS.find((entry) => entry.city === location.city || entry.name === location.name) ?? location) : null;
@@ -61,10 +63,7 @@ const LocationPage: React.FC = () => {
     setManualLocation(nextLocation?.city || nextLocation?.name || '');
 
     if (nextLocation) {
-      const mapsWindow = window.open(buildMapsSearchUrl(nextLocation), '_blank', 'noopener,noreferrer');
-      if (mapsWindow) {
-        mapsWindow.opener = null;
-      }
+      setManualLocation(nextLocation.city || nextLocation.name || '');
     }
   };
 
@@ -136,6 +135,44 @@ const LocationPage: React.FC = () => {
                 : 'Select or type a location to search farmers'}
             </p>
             {locationError && <p className="text-xs text-red-600">{locationError}</p>}
+          </CardContent>
+        </Card>
+
+        <Card className="mt-4 overflow-hidden">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <MapPin className="h-5 w-5 text-green-600" />
+              Map Preview
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {selectedLocation ? (
+              <>
+                <div className="overflow-hidden rounded-xl border bg-white">
+                  <iframe
+                    title={`${selectedLocation.city} map preview`}
+                    src={mapUrl}
+                    className="h-72 w-full"
+                    loading="lazy"
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs text-gray-500">
+                    You stay on this page while the map preview loads. Use the link only if you want full Maps.
+                  </p>
+                  <Button asChild variant="outline" size="sm" className="gap-2">
+                    <a href={mapUrl} target="_blank" rel="noreferrer">
+                      <ExternalLink className="h-4 w-4" />
+                      Open Maps
+                    </a>
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <div className="rounded-xl border border-dashed p-6 text-center text-sm text-gray-500">
+                Pick a location to show the map here.
+              </div>
+            )}
           </CardContent>
         </Card>
 
