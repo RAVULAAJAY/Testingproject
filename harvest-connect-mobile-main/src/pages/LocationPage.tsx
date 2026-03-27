@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,26 +11,51 @@ import { useGlobalState } from '@/context/GlobalStateContext';
 
 const normalizeLocationKey = (value: string) => value.trim().toLowerCase();
 
+const locationKey = (location: Pick<LocationOption, 'name' | 'city'>) =>
+  normalizeLocationKey(location.city || location.name);
+
 const resolveLocationOption = (location: LocationOption): LocationOption => {
   if (location.coordinates) {
     return location;
   }
 
-  const match = DEFAULT_LOCATION_OPTIONS.find((entry) => {
-    const normalizedLocation = normalizeLocationKey(location.city || location.name);
-    return (
-      normalizeLocationKey(entry.name) === normalizedLocation ||
-      normalizeLocationKey(entry.city) === normalizedLocation
-    );
-  });
+  const match = DEFAULT_LOCATION_OPTIONS.find((entry) => locationKey(entry) === locationKey(location));
 
   return match ? { ...match, id: location.id } : location;
+};
+
+const geocodeLocation = async (query: string): Promise<{ lat: number; lng: number } | null> => {
+  const response = await fetch(
+    `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(query)}`,
+    {
+      headers: {
+        Accept: 'application/json',
+      },
+    }
+  );
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const results = (await response.json()) as Array<{ lat: string; lon: string }>;
+  const topResult = results[0];
+
+  if (!topResult) {
+    return null;
+  }
+
+  return {
+    lat: Number(topResult.lat),
+    lng: Number(topResult.lon),
+  };
 };
 
 const LocationPage: React.FC = () => {
   const { users } = useGlobalState();
   const [selectedLocation, setSelectedLocation] = useState<LocationOption | null>(null);
   const [manualLocation, setManualLocation] = useState('');
+  const [locationError, setLocationError] = useState('');
   const [maxDistance, setMaxDistance] = useState(50);
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [isLoading, setIsLoading] = useState(false);
@@ -74,8 +99,7 @@ const LocationPage: React.FC = () => {
     const collected = new Map<string, LocationOption>();
 
     DEFAULT_LOCATION_OPTIONS.forEach((location) => {
-      collected.set(normalizeLocationKey(location.city), location);
-      collected.set(normalizeLocationKey(location.name), location);
+      collected.set(locationKey(location), location);
     });
 
     allFarmers
@@ -84,18 +108,18 @@ const LocationPage: React.FC = () => {
       .forEach((location, index) => {
         const normalized = normalizeLocationKey(location);
         const knownLocation = DEFAULT_LOCATION_OPTIONS.find((entry) => {
-          return (
-            normalizeLocationKey(entry.city) === normalized ||
-            normalizeLocationKey(entry.name) === normalized
-          );
+          return locationKey(entry) === normalized;
         });
 
-        collected.set(normalized, knownLocation ?? {
-          id: `custom_${index}_${normalized.replace(/\s+/g, '_')}`,
-          name: location,
-          city: location,
-          state: 'India',
-        });
+        collected.set(
+          normalized,
+          knownLocation ?? {
+            id: `custom_${index}_${normalized.replace(/\s+/g, '_')}`,
+            name: location,
+            city: location,
+            state: 'India',
+          }
+        );
       });
 
     return Array.from(collected.values());
@@ -138,7 +162,56 @@ const LocationPage: React.FC = () => {
     : '';
   const selectedLocationLabel = selectedLocation ? `${selectedLocation.city}${selectedLocation.state ? `, ${selectedLocation.state}` : ''}` : '';
 
-  const quickLocations = locationCatalog.slice(0, 6);
+  const quickLocations = useMemo(() => {
+    const seen = new Set<string>();
+
+    return locationCatalog.filter((location) => {
+      const key = locationKey(location);
+      if (seen.has(key)) {
+        return false;
+      }
+
+      seen.add(key);
+      return true;
+    }).slice(0, 6);
+  }, [locationCatalog]);
+
+  useEffect(() => {
+    if (!selectedLocation || selectedLocation.coordinates) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const resolveCoordinates = async () => {
+      const resolvedCoordinates = await geocodeLocation(selectedLocation.city || selectedLocation.name);
+
+      if (cancelled || !resolvedCoordinates) {
+        return;
+      }
+
+      setSelectedLocation((current) => {
+        if (!current || current.id !== selectedLocation.id) {
+          return current;
+        }
+
+        return {
+          ...current,
+          coordinates: resolvedCoordinates,
+        };
+      });
+    };
+
+    resolveCoordinates().catch(() => {
+      if (!cancelled) {
+        setLocationError('Unable to resolve that location on the map. Try a nearby city or one of the suggested locations.');
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedLocation]);
 
   const handleDistanceChange = (distance: number) => {
     setMaxDistance(distance);
@@ -149,6 +222,7 @@ const LocationPage: React.FC = () => {
   };
 
   const handleLocationChange = (location: LocationOption | null) => {
+    setLocationError('');
     setSelectedLocation(location ? resolveLocationOption(location) : null);
     setIsLoading(true);
     // Simulate loading
@@ -175,6 +249,44 @@ const LocationPage: React.FC = () => {
       city: trimmedLocation,
       state: 'India',
     });
+  };
+
+  const handleManualLocationSubmit = async () => {
+    const trimmedLocation = manualLocation.trim();
+    if (!trimmedLocation) {
+      return;
+    }
+
+    setLocationError('');
+
+    const matchedLocation = locationCatalog.find((location) => locationKey(location) === normalizeLocationKey(trimmedLocation));
+    if (matchedLocation) {
+      handleLocationChange(matchedLocation);
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const coordinates = await geocodeLocation(trimmedLocation);
+
+      if (!coordinates) {
+        setLocationError('We could not find that place on the map. Try a fuller city name like "Pune, Maharashtra".');
+        return;
+      }
+
+      handleLocationChange({
+        id: `manual_${normalizeLocationKey(trimmedLocation).replace(/\s+/g, '_')}`,
+        name: trimmedLocation,
+        city: trimmedLocation,
+        state: 'India',
+        coordinates,
+      });
+    } catch {
+      setLocationError('Map search failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleFarmerMessage = (farmerId: string) => {
@@ -211,16 +323,17 @@ const LocationPage: React.FC = () => {
               <LocationSelector
                 value={selectedLocation}
                 onChange={handleLocationChange}
-                placeholder="Select location..."
-                locations={availableLocations.length > 0 ? availableLocations : undefined}
+                placeholder="Search or select location..."
+                locations={locationCatalog}
               />
               <p className="text-xs text-gray-500">
                 {selectedLocation
                   ? `Showing farmers in ${selectedLocation.city}`
-                  : availableLocations.length > 0
-                  ? 'Select a location to find nearby farmers'
-                  : 'No farmers registered yet'}
+                  : 'Search a location to preview it on the map'}
               </p>
+              {locationError && (
+                <p className="text-xs text-red-600">{locationError}</p>
+              )}
             </CardContent>
           </Card>
 
@@ -301,8 +414,14 @@ const LocationPage: React.FC = () => {
                         onChange={(event) => setManualLocation(event.target.value)}
                         placeholder="Or type a city manually"
                         aria-label="Manual location entry"
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault();
+                            void handleManualLocationSubmit();
+                          }
+                        }}
                       />
-                      <Button onClick={handleManualLocationSearch} disabled={!manualLocation.trim()}>
+                      <Button onClick={() => void handleManualLocationSubmit()} disabled={!manualLocation.trim()}>
                         Use
                       </Button>
                     </div>
