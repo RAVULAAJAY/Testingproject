@@ -102,6 +102,8 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
   const roleStyle = roleStyles[role];
   const isFarmerSignup = role === 'farmer' && mode === 'signup';
   const isBuyerSignup = role === 'buyer' && mode === 'signup';
+  const containerWidthClass = mode === 'login' ? 'max-w-2xl' : isFarmerSignup ? 'max-w-5xl' : 'max-w-4xl';
+  const compactFieldGroupClass = mode === 'login' ? 'grid grid-cols-1 gap-4' : 'grid grid-cols-1 md:grid-cols-2 gap-4';
 
   const passwordStrength = mode === 'signup' ? getPasswordStrengthLabel(formData.password) : null;
 
@@ -538,10 +540,10 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
   const strengthColor = (passwordStrength?.color ?? 'red') as 'red' | 'yellow' | 'green';
 
   return (
-    <div className={`min-h-screen bg-gradient-to-br ${roleStyle.panelClass} py-8 px-4`}>
-      <div className="mx-auto w-full max-w-4xl">
-        <Card className="border-0 shadow-xl">
-          <CardHeader className="relative border-b pb-6">
+    <div className={`min-h-screen bg-gradient-to-br ${roleStyle.panelClass} px-4 py-6 md:py-10`}>
+      <div className={`mx-auto w-full ${containerWidthClass}`}>
+        <Card className="overflow-hidden rounded-3xl border border-white/70 bg-white/90 shadow-2xl backdrop-blur">
+          <CardHeader className="relative border-b border-white/70 pb-6 pt-8">
             <Button variant="ghost" onClick={onBack} className="absolute left-4 top-4 p-2 h-auto">
               <ArrowLeft className="h-4 w-4" />
             </Button>
@@ -561,7 +563,7 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
             </div>
           </CardHeader>
 
-          <CardContent className="pt-6">
+          <CardContent className="px-6 pb-8 pt-6 md:px-8">
             <form onSubmit={handleSubmit} className="space-y-6">
               {generalError && (
                 <div className="flex items-start gap-3 p-3 rounded-lg border border-red-200 bg-red-50">
@@ -602,7 +604,7 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
               )}
 
               {mode === 'login' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
                     <Input
@@ -619,7 +621,7 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
                 </div>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className={compactFieldGroupClass}>
                 <div className="space-y-2">
                   <Label htmlFor="password">Password</Label>
                   <div className="relative">
