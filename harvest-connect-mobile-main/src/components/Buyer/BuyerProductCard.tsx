@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   ShoppingCart,
   Heart,
@@ -25,6 +26,7 @@ interface BuyerProductCardProps {
     name: string;
     rating: number;
     reviews: number;
+    avatar?: string;
   };
   onAddToCart?: (productId: string, quantity: number) => void;
   onViewDetails?: (product: Product) => void;
@@ -143,7 +145,13 @@ const BuyerProductCard: React.FC<BuyerProductCardProps> = ({
           {/* Farmer Info (if provided) */}
           {farmer && (
             <div className="mb-3 pb-3 border-b border-gray-200 text-xs">
-              <p className="text-gray-700 font-medium mb-1">{farmer.name}</p>
+              <div className="mb-2 flex items-center gap-2">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={farmer.avatar} alt={farmer.name} />
+                  <AvatarFallback>{farmer.name.charAt(0)}</AvatarFallback>
+                </Avatar>
+                <p className="text-gray-700 font-medium">{farmer.name}</p>
+              </div>
               <div className="flex items-center gap-1">
                 <div className="flex items-center gap-0.5">
                   {Array.from({ length: 5 }).map((_, i) => (
@@ -221,6 +229,15 @@ const BuyerProductCard: React.FC<BuyerProductCardProps> = ({
               )}
               <div>
                 <p className="font-semibold text-gray-900">{product.name}</p>
+                {farmer && (
+                  <div className="mt-1 flex items-center gap-2 text-sm text-gray-700">
+                    <Avatar className="h-7 w-7">
+                      <AvatarImage src={farmer.avatar} alt={farmer.name} />
+                      <AvatarFallback>{farmer.name.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <span>{farmer.name}</span>
+                  </div>
+                )}
                 <p className="text-sm text-gray-600 mt-1">
                   ₹{product.price}/{product.unit}
                 </p>

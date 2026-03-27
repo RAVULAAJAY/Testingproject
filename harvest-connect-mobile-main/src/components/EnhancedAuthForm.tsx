@@ -1,10 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, Eye, EyeOff, AlertCircle, CheckCircle2, MapPin, Navigation, Upload, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, AlertCircle, CheckCircle2, MapPin, Navigation, Upload, ShieldCheck, Camera } from 'lucide-react';
 import {
   validateSignupForm,
   validateLoginForm,
@@ -90,7 +90,14 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
   const [isLocatingBuyer, setIsLocatingBuyer] = useState(false);
   const [idProofFileName, setIdProofFileName] = useState('');
   const [idProofFileSize, setIdProofFileSize] = useState(0);
+  const [farmerPhotoName, setFarmerPhotoName] = useState('');
+  const [farmerProfilePhoto, setFarmerProfilePhoto] = useState('');
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [isCameraStarting, setIsCameraStarting] = useState(false);
+  const [cameraError, setCameraError] = useState('');
   const [isBuyerLocationGranted, setIsBuyerLocationGranted] = useState(false);
+  const cameraVideoRef = useRef<HTMLVideoElement | null>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
 
   const roleStyle = roleStyles[role];
   const isFarmerSignup = role === 'farmer' && mode === 'signup';
@@ -125,6 +132,108 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
 
   const setFieldError = (field: string, message: string) => {
     setFieldErrors((prev) => ({ ...prev, [field]: message }));
+  };
+
+  const readFileAsDataUrl = (file: File) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        resolve(reader.result as string);
+      };
+      reader.onerror = () => reject(new Error('File read failed'));
+      reader.readAsDataURL(file);
+    });
+
+  const stopCameraStream = () => {
+    cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+    cameraStreamRef.current = null;
+
+    if (cameraVideoRef.current) {
+      cameraVideoRef.current.srcObject = null;
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      stopCameraStream();
+    };
+  }, []);
+
+  const openLiveCamera = async () => {
+    setCameraError('');
+    setIsCameraStarting(true);
+
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error('Camera is not supported in this browser.');
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1280 },
+          height: { ideal: 1280 },
+        },
+        audio: false,
+      });
+
+      cameraStreamRef.current = stream;
+      setIsCameraOpen(true);
+
+      window.setTimeout(async () => {
+        if (cameraVideoRef.current) {
+          cameraVideoRef.current.srcObject = stream;
+          try {
+            await cameraVideoRef.current.play();
+          } catch {
+            // Some browsers block autoplay; the stream can still be captured.
+          }
+        }
+      }, 0);
+    } catch {
+      setCameraError('Unable to open the camera. Please allow camera access or upload an existing photo.');
+      setIsCameraOpen(false);
+      stopCameraStream();
+    } finally {
+      setIsCameraStarting(false);
+    }
+  };
+
+  const closeCamera = () => {
+    setIsCameraOpen(false);
+    setCameraError('');
+    stopCameraStream();
+  };
+
+  const captureCameraPhoto = () => {
+    const video = cameraVideoRef.current;
+
+    if (!video || !video.videoWidth || !video.videoHeight) {
+      setCameraError('Camera is not ready yet.');
+      return;
+    }
+
+    const squareSize = Math.min(video.videoWidth, video.videoHeight);
+    const sourceX = Math.floor((video.videoWidth - squareSize) / 2);
+    const sourceY = Math.floor((video.videoHeight - squareSize) / 2);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 960;
+    canvas.height = 960;
+
+    const context = canvas.getContext('2d');
+    if (!context) {
+      setCameraError('Unable to capture photo right now.');
+      return;
+    }
+
+    context.drawImage(video, sourceX, sourceY, squareSize, squareSize, 0, 0, canvas.width, canvas.height);
+
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+    setFarmerProfilePhoto(dataUrl);
+    setFarmerPhotoName('Live photo captured');
+    setFieldErrors((prev) => ({ ...prev, profilePhoto: '' }));
+    closeCamera();
   };
 
   const requestLocation = (): Promise<GeolocationPosition> => {
@@ -243,6 +352,38 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
     }
   };
 
+  const handleFarmerPhotoUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      setFieldError('profilePhoto', 'Please choose an image file for the farmer photo.');
+      event.target.value = '';
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setFieldError('profilePhoto', 'Farmer photo must be less than 5 MB.');
+      event.target.value = '';
+      return;
+    }
+
+    const dataUrl = await readFileAsDataUrl(file);
+    setFarmerProfilePhoto(dataUrl);
+    setFarmerPhotoName(`Uploaded photo: ${file.name}`);
+
+    if (fieldErrors.profilePhoto) {
+      setFieldErrors((prev) => ({ ...prev, profilePhoto: '' }));
+    }
+
+    event.target.value = '';
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -344,6 +485,7 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
                   ? (isFarmerSignup ? formData.address.trim() : formData.location.trim())
                   : existingUser?.location ?? '',
               role,
+              profilePhoto: role === 'farmer' ? farmerProfilePhoto || existingUser?.profilePhoto : existingUser?.profilePhoto,
               farmName: role === 'farmer' ? existingUser?.farmName ?? `${formData.name.trim()}'s Farm` : undefined,
               cropTypes: role === 'farmer' ? existingUser?.cropTypes ?? ['Mixed Crops'] : undefined,
               paymentDetails:
@@ -671,6 +813,45 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
 
                   <div className="rounded-xl border bg-white p-4 md:p-6 space-y-4">
                     <div className="flex items-center gap-2">
+                      <Camera className="h-5 w-5 text-emerald-600" />
+                      <h3 className="text-lg font-semibold text-gray-900">Farmer Photo</h3>
+                    </div>
+
+                    <div className="flex flex-col gap-4 md:flex-row md:items-center">
+                      <div className="h-28 w-28 overflow-hidden rounded-2xl border bg-gray-50 flex items-center justify-center shrink-0">
+                        {farmerProfilePhoto ? (
+                          <img src={farmerProfilePhoto} alt="Farmer preview" className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="text-center px-3 text-xs text-gray-500">No photo selected</div>
+                        )}
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="flex flex-wrap gap-2">
+                          <label className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium cursor-pointer hover:bg-gray-50">
+                            <Upload className="h-4 w-4" />
+                            Upload Existing Photo
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={handleFarmerPhotoUpload}
+                            />
+                          </label>
+                              <Button type="button" variant="outline" className="gap-2" onClick={openLiveCamera} disabled={isCameraStarting}>
+                                <Camera className="h-4 w-4" />
+                                {isCameraStarting ? 'Opening Camera...' : 'Take Live Photo'}
+                              </Button>
+                        </div>
+                        <p className="text-sm text-gray-600">
+                          {farmerPhotoName || 'Choose an existing photo or capture a live photo.'}
+                        </p>
+                        {fieldErrors.profilePhoto && <p className="text-sm text-red-600">{fieldErrors.profilePhoto}</p>}
+                            {cameraError && <p className="text-sm text-red-600">{cameraError}</p>}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
                       <MapPin className="h-5 w-5 text-emerald-600" />
                       <h3 className="text-lg font-semibold text-gray-900">Address & Farm Location</h3>
                     </div>
@@ -855,6 +1036,45 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
                   : 'Create Account'}
               </Button>
             </form>
+
+            {isCameraOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-6">
+                <div className="w-full max-w-lg rounded-2xl bg-white p-4 shadow-2xl">
+                  <div className="flex items-center justify-between gap-3 border-b pb-3">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">Capture Live Photo</h3>
+                      <p className="text-sm text-gray-600">Keep the subject inside the square frame.</p>
+                    </div>
+                    <Button type="button" variant="outline" onClick={closeCamera}>
+                      Close
+                    </Button>
+                  </div>
+
+                  <div className="mt-4 overflow-hidden rounded-2xl border bg-black">
+                    <div className="relative aspect-square w-full">
+                      <video
+                        ref={cameraVideoRef}
+                        className="h-full w-full object-cover"
+                        playsInline
+                        muted
+                        autoPlay
+                      />
+                      <div className="pointer-events-none absolute inset-0 border-2 border-white/80 ring-4 ring-emerald-500/30" />
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    <Button type="button" className="flex-1 bg-emerald-600 hover:bg-emerald-700" onClick={captureCameraPhoto}>
+                      <Camera className="h-4 w-4 mr-2" />
+                      Capture Photo
+                    </Button>
+                    <Button type="button" variant="outline" className="flex-1" onClick={closeCamera}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="text-center mt-6 pt-6 border-t">
               <p className="text-sm text-gray-600 mb-2">

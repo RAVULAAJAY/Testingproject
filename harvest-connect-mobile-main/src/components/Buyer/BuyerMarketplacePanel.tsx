@@ -231,12 +231,14 @@ const BuyerMarketplacePanel: React.FC = () => {
   };
 
   const getFarmerDetails = (farmerId: string, farmerName: string) => {
+    const farmerUser = users.find((entry) => entry.id === farmerId);
     const farmer = nearbyFarmers.find((entry) => entry.id === farmerId);
 
     return {
       name: farmer?.name ?? farmerName,
       rating: farmer?.averageRating ? Number(farmer.averageRating.toFixed(1)) : 4.5,
       reviews: farmer?.totalReviews ?? 0,
+      avatar: farmerUser?.profilePhoto,
     };
   };
 

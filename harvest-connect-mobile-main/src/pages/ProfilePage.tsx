@@ -12,6 +12,7 @@ import { isProfileComplete, User, UserRole } from '@/context/AuthContext';
 import { Textarea } from '@/components/ui/textarea';
 import { useGlobalState } from '@/context/GlobalStateContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface ProfilePageProps {
   user: User;
@@ -205,9 +206,12 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, requireCompletion = fal
         <CardContent className="pt-6">
           <div className="flex items-start justify-between mb-6">
             <div className="flex items-center gap-4">
-              <div className={`text-6xl w-24 h-24 rounded-full flex items-center justify-center ${roleStyle.avatar}`}>
-                {getRoleEmoji(user.role)}
-              </div>
+              <Avatar className="h-24 w-24">
+                <AvatarImage src={user.profilePhoto} alt={user.name} />
+                <AvatarFallback className={`text-3xl ${roleStyle.avatar}`}>
+                  {getRoleEmoji(user.role)}
+                </AvatarFallback>
+              </Avatar>
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">{formData.name}</h1>
                 <div className={`inline-block mt-2 px-3 py-1 rounded-full text-sm font-medium ${roleStyle.badge}`}>

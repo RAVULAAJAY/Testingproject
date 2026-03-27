@@ -29,6 +29,7 @@ import BuyerDashboardPage from "./pages/Buyer/BuyerDashboardPage";
 import AddPaymentPage from "./pages/Buyer/AddPaymentPage";
 import CartPage from "./pages/Buyer/CartPage";
 import CheckoutPage from "./pages/Buyer/CheckoutPage";
+import FarmerPaymentsPage from "./pages/Farmer/FarmerPaymentsPage";
 import AdminDashboard from "./components/AdminDashboard";
 import ProductDetailsPage from "./pages/ProductDetailsPage";
 
@@ -212,7 +213,13 @@ const AppRoutes = () => {
           <Route
             path="/payment"
             element={
-              currentUser.role === 'buyer' ? <Navigate to="/checkout" replace /> : <Navigate to="/dashboard" replace />
+              currentUser.role === 'farmer' ? (
+                <Navigate to="/farmer/payments" replace />
+              ) : currentUser.role === 'buyer' ? (
+                <Navigate to="/checkout" replace />
+              ) : (
+                <Navigate to="/dashboard" replace />
+              )
             }
           />
           
@@ -318,6 +325,18 @@ const AppRoutes = () => {
                     currentPath="/farmer/payment-setup"
                   >
                     <AddPaymentDetailsPage user={currentUser} />
+                  </Layout>
+                }
+              />
+              <Route
+                path="/farmer/payments"
+                element={
+                  <Layout
+                    user={currentUser}
+                    onLogout={logout}
+                    currentPath="/farmer/payments"
+                  >
+                    <FarmerPaymentsPage user={currentUser} />
                   </Layout>
                 }
               />

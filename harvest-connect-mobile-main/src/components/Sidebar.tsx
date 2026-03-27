@@ -22,6 +22,7 @@ import {
   Wallet
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { User as UserType } from '@/context/AuthContext';
 
 interface SidebarProps {
@@ -44,6 +45,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   const isFarmer = user.role === 'farmer';
   const isBuyer = user.role === 'buyer';
   const isAdmin = user.role === 'admin';
+  const paymentPath = isFarmer ? '/farmer/payments' : isBuyer ? '/checkout' : '/payment';
+  const paymentLabel = isFarmer ? 'Payments' : 'Checkout';
 
   const getRoleColor = (role: string) => {
     switch(role) {
@@ -80,7 +83,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     { icon: MessageSquare, label: 'Messages', path: '/messages', show: true },
     { icon: MessageCircle, label: 'Chat', path: '/chat', show: true },
     { icon: MapPin, label: 'Find Farmers', path: '/locations', show: true },
-    { icon: CreditCard, label: 'Payment', path: '/payment', show: true },
+    { icon: CreditCard, label: paymentLabel, path: paymentPath, show: isFarmer || isBuyer },
     { icon: Star, label: 'Ratings & Reviews', path: '/ratings', show: true },
     { icon: Truck, label: 'Delivery', path: '/delivery', show: true },
     { icon: Bell, label: 'Notifications', path: '/notifications', show: true },
@@ -140,7 +143,10 @@ const Sidebar: React.FC<SidebarProps> = ({
           {/* User Info - Modern Card */}
           <div className={`m-4 p-4 bg-gradient-to-br ${getRoleColor(user.role).bg} border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-all duration-300`}>
             <div className="flex items-center gap-3">
-              <div className="text-3xl transform hover:scale-110 transition-transform">{getRoleEmoji(user.role)}</div>
+              <Avatar className="h-12 w-12 shrink-0">
+                <AvatarImage src={user.profilePhoto} alt={user.name} />
+                <AvatarFallback className="text-xl bg-white/80">{getRoleEmoji(user.role)}</AvatarFallback>
+              </Avatar>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-gray-900 text-sm truncate">{user.name}</p>
                 <p className={`text-xs font-medium capitalize ${getRoleColor(user.role).text}`}>

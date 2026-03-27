@@ -52,6 +52,7 @@ export interface User {
   isActive?: boolean;
   lastLoginAt?: string;
   loginCount?: number;
+  profilePhoto?: string;
   farmName?: string;
   cropTypes?: string[];
   paymentDetails?: FarmerPaymentDetails;

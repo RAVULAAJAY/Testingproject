@@ -50,7 +50,7 @@ const AddPaymentDetailsPage: React.FC<AddPaymentDetailsPageProps> = ({ user }) =
       },
     });
 
-    navigate('/my-listings', { replace: true });
+    navigate('/farmer/payments', { replace: true });
   };
 
   return (
@@ -59,7 +59,7 @@ const AddPaymentDetailsPage: React.FC<AddPaymentDetailsPageProps> = ({ user }) =
         <CardHeader>
           <CardTitle>Add Payment Details</CardTitle>
           <CardDescription>
-            Payment setup is required before selling products.
+              Payment setup is required before selling products and receiving payouts.
           </CardDescription>
         </CardHeader>
         <CardContent>

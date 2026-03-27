@@ -159,6 +159,10 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ user }) => {
     navigate('/messages');
   };
 
+  const handleOpenPayments = () => {
+    navigate('/farmer/payments');
+  };
+
   if (isFarmer) {
     return (
       <div className="space-y-6">
@@ -247,6 +251,14 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ user }) => {
               >
                 <ShoppingCart className="h-5 w-5" />
                 View Orders ({farmerOrders.length})
+              </Button>
+              <Button
+                variant="outline"
+                className="gap-2 h-auto py-3 hover:bg-green-50 transition-all duration-200"
+                onClick={handleOpenPayments}
+              >
+                <TrendingUp className="h-5 w-5" />
+                Track Payments ({farmerDeliveredOrders.length})
               </Button>
             </div>
           </CardContent>

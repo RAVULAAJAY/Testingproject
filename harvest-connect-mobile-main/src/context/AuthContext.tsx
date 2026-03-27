@@ -1,4 +1,5 @@
 import React, { createContext, useState, useContext, useCallback, ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   useGlobalState,
   type AuthMode,
@@ -65,6 +66,7 @@ export interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const navigate = useNavigate();
   const {
     currentUser,
     selectedRole,
@@ -81,7 +83,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const logout = useCallback(() => {
     clearGlobalAuth();
     setAuthMode(null);
-  }, [clearGlobalAuth]);
+    navigate('/', { replace: true });
+  }, [clearGlobalAuth, navigate]);
 
   const value: AuthContextType = {
     currentUser,
