@@ -1,17 +1,36 @@
 import React, { useState, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { MapPin, Navigation, Search, Filter, LayoutGrid, List } from 'lucide-react';
-import LocationSelector, { LocationOption } from '@/components/Location/LocationSelector';
+import LocationSelector, { DEFAULT_LOCATION_OPTIONS, LocationOption } from '@/components/Location/LocationSelector';
 import DistanceFilter from '@/components/Location/DistanceFilter';
 import NearbyFarmers, { Farmer } from '@/components/Location/NearbyFarmers';
 import { useGlobalState } from '@/context/GlobalStateContext';
 
+const normalizeLocationKey = (value: string) => value.trim().toLowerCase();
+
+const resolveLocationOption = (location: LocationOption): LocationOption => {
+  if (location.coordinates) {
+    return location;
+  }
+
+  const match = DEFAULT_LOCATION_OPTIONS.find((entry) => {
+    const normalizedLocation = normalizeLocationKey(location.city || location.name);
+    return (
+      normalizeLocationKey(entry.name) === normalizedLocation ||
+      normalizeLocationKey(entry.city) === normalizedLocation
+    );
+  });
+
+  return match ? { ...match, id: location.id } : location;
+};
+
 const LocationPage: React.FC = () => {
   const { users } = useGlobalState();
   const [selectedLocation, setSelectedLocation] = useState<LocationOption | null>(null);
+  const [manualLocation, setManualLocation] = useState('');
   const [maxDistance, setMaxDistance] = useState(50);
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [isLoading, setIsLoading] = useState(false);
@@ -51,6 +70,37 @@ const LocationPage: React.FC = () => {
     return grouped;
   }, [allFarmers]);
 
+  const locationCatalog = useMemo(() => {
+    const collected = new Map<string, LocationOption>();
+
+    DEFAULT_LOCATION_OPTIONS.forEach((location) => {
+      collected.set(normalizeLocationKey(location.city), location);
+      collected.set(normalizeLocationKey(location.name), location);
+    });
+
+    allFarmers
+      .map((farmer) => farmer.location?.trim())
+      .filter((location): location is string => Boolean(location))
+      .forEach((location, index) => {
+        const normalized = normalizeLocationKey(location);
+        const knownLocation = DEFAULT_LOCATION_OPTIONS.find((entry) => {
+          return (
+            normalizeLocationKey(entry.city) === normalized ||
+            normalizeLocationKey(entry.name) === normalized
+          );
+        });
+
+        collected.set(normalized, knownLocation ?? {
+          id: `custom_${index}_${normalized.replace(/\s+/g, '_')}`,
+          name: location,
+          city: location,
+          state: 'India',
+        });
+      });
+
+    return Array.from(collected.values());
+  }, [allFarmers]);
+
   // Get unique locations from farmers (those with location filled)
   const availableLocations = useMemo(() => {
     const farmersWithLocation = allFarmers.filter(f => f.location && f.location.trim());
@@ -82,6 +132,14 @@ const LocationPage: React.FC = () => {
     return farmersInLocation.filter(farmer => farmer.distance <= maxDistance);
   }, [selectedLocation, maxDistance, farmersByLocation]);
 
+  const mapCenter = selectedLocation?.coordinates ?? null;
+  const mapSrc = mapCenter
+    ? `https://maps.google.com/maps?q=${mapCenter.lat},${mapCenter.lng}&z=11&output=embed`
+    : '';
+  const selectedLocationLabel = selectedLocation ? `${selectedLocation.city}${selectedLocation.state ? `, ${selectedLocation.state}` : ''}` : '';
+
+  const quickLocations = locationCatalog.slice(0, 6);
+
   const handleDistanceChange = (distance: number) => {
     setMaxDistance(distance);
   };
@@ -91,10 +149,32 @@ const LocationPage: React.FC = () => {
   };
 
   const handleLocationChange = (location: LocationOption | null) => {
-    setSelectedLocation(location);
+    setSelectedLocation(location ? resolveLocationOption(location) : null);
     setIsLoading(true);
     // Simulate loading
     setTimeout(() => setIsLoading(false), 600);
+  };
+
+  const handleManualLocationSearch = () => {
+    const trimmedLocation = manualLocation.trim();
+    if (!trimmedLocation) {
+      return;
+    }
+
+    const matchedLocation = locationCatalog.find((location) => {
+      const normalizedLocation = normalizeLocationKey(trimmedLocation);
+      return (
+        normalizeLocationKey(location.name) === normalizedLocation ||
+        normalizeLocationKey(location.city) === normalizedLocation
+      );
+    });
+
+    handleLocationChange(matchedLocation ?? {
+      id: `manual_${normalizeLocationKey(trimmedLocation).replace(/\s+/g, '_')}`,
+      name: trimmedLocation,
+      city: trimmedLocation,
+      state: 'India',
+    });
   };
 
   const handleFarmerMessage = (farmerId: string) => {
@@ -188,14 +268,77 @@ const LocationPage: React.FC = () => {
 
         {/* Main Content Area */}
         <div className="lg:col-span-3 space-y-4">
-          {/* Empty State */}
+          {/* Empty / Map State */}
           {!selectedLocation && (
-            <Alert className="border-2 border-dashed border-gray-300">
-              <MapPin className="h-4 w-4" />
-              <AlertDescription>
-                Select a location above to discover farmers in your area
-              </AlertDescription>
-            </Alert>
+            <Card className="border-2 border-dashed border-green-200 bg-gradient-to-br from-green-50 via-white to-blue-50">
+              <CardContent className="pt-6 space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="rounded-full bg-green-100 p-2 text-green-700">
+                    <MapPin className="h-5 w-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <h2 className="text-lg font-semibold text-gray-900">Explore a location</h2>
+                    <p className="text-sm text-gray-600">
+                      {hasFarmersInSystem
+                        ? 'Select a city to find nearby farmers and preview it on the map.'
+                        : 'No farmers are registered yet. You can still search a location, enter one manually, and preview it on the map.'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <div className="space-y-3">
+                    <LocationSelector
+                      value={selectedLocation}
+                      onChange={handleLocationChange}
+                      placeholder="Search location..."
+                      locations={locationCatalog}
+                    />
+
+                    <div className="flex gap-2">
+                      <Input
+                        value={manualLocation}
+                        onChange={(event) => setManualLocation(event.target.value)}
+                        placeholder="Or type a city manually"
+                        aria-label="Manual location entry"
+                      />
+                      <Button onClick={handleManualLocationSearch} disabled={!manualLocation.trim()}>
+                        Use
+                      </Button>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      {quickLocations.map((location) => (
+                        <Button
+                          key={location.id}
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleLocationChange(location)}
+                        >
+                          {location.city}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="overflow-hidden rounded-xl border bg-white shadow-sm">
+                    {mapSrc ? (
+                      <iframe
+                        title="Selected location map"
+                        src={mapSrc}
+                        className="h-72 w-full"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="flex h-72 items-center justify-center px-6 text-center text-sm text-gray-500">
+                        Pick or search a location to preview it on the map.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           )}
 
           {/* Results Header */}
@@ -206,7 +349,7 @@ const LocationPage: React.FC = () => {
                   {nearbyFarmers.length} Farms Found
                 </h2>
                 <p className="text-sm text-gray-600 mt-1">
-                  Within {maxDistance} km of {selectedLocation.city}
+                  Within {maxDistance} km of {selectedLocationLabel || selectedLocation.city}
                 </p>
               </div>
 
@@ -235,6 +378,31 @@ const LocationPage: React.FC = () => {
           {/* Farmers Display */}
           {selectedLocation && (
             <>
+              <Card className="overflow-hidden">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Navigation className="h-4 w-4 text-green-600" />
+                    Map Preview
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <div className="overflow-hidden rounded-xl border bg-white">
+                    {mapSrc ? (
+                      <iframe
+                        title={`${selectedLocation.city} map`}
+                        src={mapSrc}
+                        className="h-72 w-full"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="flex h-72 items-center justify-center px-6 text-center text-sm text-gray-500">
+                        This location does not have coordinates yet. Try a known city or enter one from the quick search.
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
               {viewMode === 'list' ? (
                 <NearbyFarmers
                   farmers={nearbyFarmers}
