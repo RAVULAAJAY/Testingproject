@@ -2,8 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { MapPin, Navigation, Search, Filter, LayoutGrid, List } from 'lucide-react';
+import { MapPin, Navigation, LayoutGrid, List, ExternalLink, LocateFixed } from 'lucide-react';
 import LocationSelector, { DEFAULT_LOCATION_OPTIONS, LocationOption } from '@/components/Location/LocationSelector';
 import DistanceFilter from '@/components/Location/DistanceFilter';
 import NearbyFarmers, { Farmer } from '@/components/Location/NearbyFarmers';
@@ -49,6 +48,15 @@ const geocodeLocation = async (query: string): Promise<{ lat: number; lng: numbe
     lat: Number(topResult.lat),
     lng: Number(topResult.lon),
   };
+};
+
+const buildMapsSearchUrl = (location: Pick<LocationOption, 'name' | 'city' | 'state' | 'coordinates'>) => {
+  if (location.coordinates) {
+    return `https://www.google.com/maps/search/?api=1&query=${location.coordinates.lat},${location.coordinates.lng}`;
+  }
+
+  const query = [location.name, location.city, location.state].filter(Boolean).join(', ');
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 };
 
 const LocationPage: React.FC = () => {
@@ -156,10 +164,7 @@ const LocationPage: React.FC = () => {
     return farmersInLocation.filter(farmer => farmer.distance <= maxDistance);
   }, [selectedLocation, maxDistance, farmersByLocation]);
 
-  const mapCenter = selectedLocation?.coordinates ?? null;
-  const mapSrc = mapCenter
-    ? `https://maps.google.com/maps?q=${mapCenter.lat},${mapCenter.lng}&z=11&output=embed`
-    : '';
+  const mapUrl = selectedLocation ? buildMapsSearchUrl(selectedLocation) : '';
   const selectedLocationLabel = selectedLocation ? `${selectedLocation.city}${selectedLocation.state ? `, ${selectedLocation.state}` : ''}` : '';
 
   const quickLocations = useMemo(() => {
@@ -381,7 +386,7 @@ const LocationPage: React.FC = () => {
 
         {/* Main Content Area */}
         <div className="lg:col-span-3 space-y-4">
-          {/* Empty / Map State */}
+          {/* Empty / Search State */}
           {!selectedLocation && (
             <Card className="border-2 border-dashed border-green-200 bg-gradient-to-br from-green-50 via-white to-blue-50">
               <CardContent className="pt-6 space-y-4">
@@ -439,21 +444,30 @@ const LocationPage: React.FC = () => {
                         </Button>
                       ))}
                     </div>
+
+                    {locationError && (
+                      <p className="text-sm text-red-600">{locationError}</p>
+                    )}
                   </div>
 
                   <div className="overflow-hidden rounded-xl border bg-white shadow-sm">
-                    {mapSrc ? (
-                      <iframe
-                        title="Selected location map"
-                        src={mapSrc}
-                        className="h-72 w-full"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="flex h-72 items-center justify-center px-6 text-center text-sm text-gray-500">
-                        Pick or search a location to preview it on the map.
+                    <div className="flex h-72 flex-col items-center justify-center gap-4 px-6 text-center">
+                      <div className="rounded-full bg-green-100 p-4 text-green-700">
+                        <LocateFixed className="h-7 w-7" />
                       </div>
-                    )}
+                      <div className="space-y-1">
+                        <p className="text-base font-semibold text-gray-900">Open the selected location in Google Maps</p>
+                        <p className="text-sm text-gray-500">
+                          Search a city or enter one manually, then open the result in Maps for directions and live navigation.
+                        </p>
+                      </div>
+                      <Button asChild disabled={!selectedLocation} className="gap-2 bg-green-600 hover:bg-green-700">
+                        <a href={mapUrl || '#'} target="_blank" rel="noreferrer">
+                          <ExternalLink className="h-4 w-4" />
+                          Open in Maps
+                        </a>
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -501,23 +515,25 @@ const LocationPage: React.FC = () => {
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base flex items-center gap-2">
                     <Navigation className="h-4 w-4 text-green-600" />
-                    Map Preview
+                    Google Maps
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-0">
-                  <div className="overflow-hidden rounded-xl border bg-white">
-                    {mapSrc ? (
-                      <iframe
-                        title={`${selectedLocation.city} map`}
-                        src={mapSrc}
-                        className="h-72 w-full"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="flex h-72 items-center justify-center px-6 text-center text-sm text-gray-500">
-                        This location does not have coordinates yet. Try a known city or enter one from the quick search.
-                      </div>
-                    )}
+                  <div className="flex flex-col items-start gap-3 rounded-xl border bg-gradient-to-br from-white to-green-50 p-5">
+                    <div>
+                      <p className="font-semibold text-gray-900">{selectedLocationLabel || selectedLocation.city}</p>
+                      <p className="text-sm text-gray-600">
+                        {selectedLocation.coordinates
+                          ? 'Coordinates resolved and ready to open in Maps.'
+                          : 'No coordinates stored yet. Open Maps will search the typed location directly.'}
+                      </p>
+                    </div>
+                    <Button asChild className="gap-2 bg-green-600 hover:bg-green-700">
+                      <a href={mapUrl} target="_blank" rel="noreferrer">
+                        <ExternalLink className="h-4 w-4" />
+                        Open in Google Maps
+                      </a>
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
