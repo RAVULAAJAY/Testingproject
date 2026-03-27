@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MapPin, Navigation } from 'lucide-react';
+import { Navigation } from 'lucide-react';
 import LocationSelector, { DEFAULT_LOCATION_OPTIONS, LocationOption } from '@/components/Location/LocationSelector';
 
 const buildMapsSearchUrl = (location: LocationOption) => {
@@ -36,43 +36,27 @@ const LocationPage: React.FC = () => {
         <p className="text-gray-600 mt-2">Connect directly with local farmers and get fresh produce delivered</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <div className="lg:col-span-1">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Navigation className="h-5 w-5 text-green-600" />
-                Location
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <LocationSelector
-                value={selectedLocation}
-                onChange={handleLocationChange}
-                placeholder="Search or select location..."
-                locations={DEFAULT_LOCATION_OPTIONS}
-              />
-              <p className="text-xs text-gray-500">
-                {selectedLocation ? `Opening ${selectedLocation.city} in Google Maps` : 'Select a location to open Google Maps'}
-              </p>
-              {locationError && <p className="text-xs text-red-600">{locationError}</p>}
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="lg:col-span-3">
-          <Card className="border-2 border-dashed border-green-200 bg-gradient-to-br from-green-50 via-white to-blue-50 min-h-[320px] flex items-center justify-center">
-            <CardContent className="text-center space-y-2">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-green-700">
-                <MapPin className="h-6 w-6" />
-              </div>
-              <h2 className="text-lg font-semibold text-gray-900">Location only</h2>
-              <p className="text-sm text-gray-600 max-w-md">
-                The page now keeps only the location selector. Choosing a location opens Google Maps directly.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+      <div className="max-w-xl">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Navigation className="h-5 w-5 text-green-600" />
+              Location
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <LocationSelector
+              value={selectedLocation}
+              onChange={handleLocationChange}
+              placeholder="Search or select location..."
+              locations={DEFAULT_LOCATION_OPTIONS}
+            />
+            <p className="text-xs text-gray-500">
+              {selectedLocation ? `Opening ${selectedLocation.city} in Google Maps` : 'Select a location to open Google Maps'}
+            </p>
+            {locationError && <p className="text-xs text-red-600">{locationError}</p>}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
