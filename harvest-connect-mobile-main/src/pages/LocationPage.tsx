@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from 'react';
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MapPin, Navigation, LayoutGrid, List } from 'lucide-react';
 import LocationSelector, { DEFAULT_LOCATION_OPTIONS, LocationOption } from '@/components/Location/LocationSelector';
@@ -35,7 +34,6 @@ const buildMapsSearchUrl = (location: Pick<LocationOption, 'name' | 'city' | 'st
 const LocationPage: React.FC = () => {
   const { users } = useGlobalState();
   const [selectedLocation, setSelectedLocation] = useState<LocationOption | null>(null);
-  const [manualLocation, setManualLocation] = useState('');
   const [locationError, setLocationError] = useState('');
   const [maxDistance, setMaxDistance] = useState(50);
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
@@ -122,20 +120,6 @@ const LocationPage: React.FC = () => {
   const mapUrl = selectedLocation ? buildMapsSearchUrl(selectedLocation) : '';
   const selectedLocationLabel = selectedLocation ? `${selectedLocation.city}${selectedLocation.state ? `, ${selectedLocation.state}` : ''}` : '';
 
-  const quickLocations = useMemo(() => {
-    const seen = new Set<string>();
-
-    return locationCatalog.filter((location) => {
-      const key = locationKey(location);
-      if (seen.has(key)) {
-        return false;
-      }
-
-      seen.add(key);
-      return true;
-    }).slice(0, 6);
-  }, [locationCatalog]);
-
   const openMaps = (location: LocationOption) => {
     const mapsWindow = window.open(buildMapsSearchUrl(location), '_blank', 'noopener,noreferrer');
     if (mapsWindow) {
@@ -161,33 +145,6 @@ const LocationPage: React.FC = () => {
     }
     // Simulate loading
     setTimeout(() => setIsLoading(false), 600);
-  };
-
-  const handleManualLocationSubmit = async () => {
-    const trimmedLocation = manualLocation.trim();
-    if (!trimmedLocation) {
-      return;
-    }
-
-    setLocationError('');
-
-    const matchedLocation = locationCatalog.find((location) => locationKey(location) === normalizeLocationKey(trimmedLocation));
-    if (matchedLocation) {
-      handleLocationChange(matchedLocation);
-      return;
-    }
-
-    const customLocation: LocationOption = {
-      id: `manual_${normalizeLocationKey(trimmedLocation).replace(/\s+/g, '_')}`,
-      name: trimmedLocation,
-      city: trimmedLocation,
-      state: 'India',
-    };
-
-    setSelectedLocation(customLocation);
-    openMaps(customLocation);
-    setIsLoading(true);
-    window.setTimeout(() => setIsLoading(false), 600);
   };
 
   const handleFarmerMessage = (farmerId: string) => {
@@ -308,35 +265,6 @@ const LocationPage: React.FC = () => {
                       placeholder="Search location..."
                       locations={locationCatalog}
                     />
-
-                    <div className="flex gap-2">
-                      <Input
-                        value={manualLocation}
-                        onChange={(event) => setManualLocation(event.target.value)}
-                        placeholder="Or type a city manually"
-                        aria-label="Manual location entry"
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter') {
-                            event.preventDefault();
-                            void handleManualLocationSubmit();
-                          }
-                        }}
-                      />
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                      {quickLocations.map((location) => (
-                        <Button
-                          key={location.id}
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleLocationChange(location)}
-                        >
-                          {location.city}
-                        </Button>
-                      ))}
-                    </div>
 
                     {locationError && (
                       <p className="text-sm text-red-600">{locationError}</p>
