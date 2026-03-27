@@ -59,14 +59,8 @@ const FarmerManagementPanel: React.FC = () => {
     return '';
   };
 
-  useEffect(() => {
-    if (!currentUser || canUploadProducts || activeTab !== 'add-product') {
-      return;
-    }
-
-    setActiveTab('profile');
-    setPaymentErrorMessage(getUploadBlockMessage());
-  }, [activeTab, canUploadProducts, currentUser, hasPaymentDetails, hasProfileDetails]);
+  // Removed forced tab-switching effect to prevent flicker/jump during `add-product` attempts.
+  // Farmer dashboard controls `add-product` eligibility in openAddDialog now.
 
   const handleTabChange = (value: string) => {
     if (value !== 'products' && value !== 'orders' && value !== 'profile' && value !== 'add-product') {
@@ -295,7 +289,7 @@ const FarmerManagementPanel: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-8">
-      <Card className="border-0 shadow-sm bg-gradient-to-r from-emerald-700 to-teal-700 text-white">
+      <Card className="border-0 shadow-sm bg-emerald-700 text-white">
         <CardContent className="pt-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>

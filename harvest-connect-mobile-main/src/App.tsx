@@ -116,8 +116,7 @@ const AppRoutes = () => {
   if (
     currentUser?.role === 'farmer' &&
     isPaymentSetupIncomplete &&
-    (location.pathname === '/my-listings' ||
-      (location.pathname === '/farmer/dashboard' && isTryingToOpenAddProduct))
+    location.pathname === '/my-listings'
   ) {
     return <Navigate to="/farmer/payment-setup?warning=payment-required" replace />;
   }

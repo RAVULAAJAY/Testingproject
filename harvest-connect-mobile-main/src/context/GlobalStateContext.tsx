@@ -343,6 +343,8 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({
 
     loadData();
 
+    const isJsonEqual = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
     const poll = setInterval(async () => {
       try {
         const [productsData, usersData, ordersData, activityData] = await Promise.all([
@@ -351,14 +353,23 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({
           api.fetchOrders(),
           api.fetchActivityLogs(),
         ]);
-        setProducts(productsData.map(normalizeProduct));
-        setUsers(usersData.length > 0 ? usersData : [defaultAdminUser]);
-        setOrders(ordersData.map(normalizeOrder));
-        setActivityLogs(activityData);
+
+        const updatedProducts = productsData.map(normalizeProduct);
+        setProducts((prev) => (isJsonEqual(prev, updatedProducts) ? prev : updatedProducts));
+
+        setUsers((prev) => {
+          const nextUsers = usersData.length > 0 ? usersData : [defaultAdminUser];
+          return isJsonEqual(prev, nextUsers) ? prev : nextUsers;
+        });
+
+        const updatedOrders = ordersData.map(normalizeOrder);
+        setOrders((prev) => (isJsonEqual(prev, updatedOrders) ? prev : updatedOrders));
+
+        setActivityLogs((prev) => (isJsonEqual(prev, activityData) ? prev : activityData));
       } catch (e) {
         console.warn('Polling error', e);
       }
-    }, 3000);
+    }, 8000);
 
     return () => clearInterval(poll);
   }, []);

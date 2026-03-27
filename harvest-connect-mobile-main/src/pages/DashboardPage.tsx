@@ -168,7 +168,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ user }) => {
           <p className="text-gray-600 mt-2">Here's what's happening with your farm today</p>
         </div>
 
-        {/* Key Stats - with staggered animation */}
+        {/* Key Stats (stable style - no changing gradient overlays) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
           {[
             {
@@ -176,7 +176,6 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ user }) => {
               label: 'Active Listings',
               value: `${farmerProducts.filter((product) => (product.stock ?? product.quantity) > 0).length}`,
               change: `${farmerProducts.length} total listings`,
-              color: 'from-green-500 to-emerald-600',
               textColor: 'text-green-600',
             },
             {
@@ -184,7 +183,6 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ user }) => {
               label: 'Orders Received',
               value: `${farmerOrders.length}`,
               change: `${farmerOrders.filter((order) => order.status === 'pending').length} pending`,
-              color: 'from-blue-500 to-cyan-600',
               textColor: 'text-blue-600',
             },
             {
@@ -192,7 +190,6 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ user }) => {
               label: 'Total Revenue',
               value: `₹${totalRevenue.toFixed(0)}`,
               change: `${farmerDeliveredOrders.length} delivered orders`,
-              color: 'from-purple-500 to-pink-600',
               textColor: 'text-purple-600',
             },
             {
@@ -200,21 +197,19 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ user }) => {
               label: 'Weekly Revenue',
               value: `₹${weeklyRevenue.toFixed(0)}`,
               change: weeklyRevenueChangeLabel,
-              color: 'from-amber-500 to-orange-600',
               textColor: 'text-amber-600',
             },
           ].map((stat, idx) => {
             const Icon = stat.icon;
             return (
-              <Card key={idx} className={`animate-slide-in-bottom card-hover border-0 shadow-medium overflow-hidden`} style={{ animationDelay: `${idx * 50}ms` }}>
-                <div className={`absolute inset-0 bg-gradient-to-br ${stat.color} opacity-10`} />
-                <CardHeader className="pb-3 relative">
+              <Card key={idx} className="card-hover border border-gray-200 shadow-sm bg-white" style={{ animationDelay: `${idx * 50}ms` }}>
+                <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
                     <Icon className="h-5 w-5 md:h-6 md:w-6" />
                     {stat.label}
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="relative">
+                <CardContent>
                   <p className="text-2xl md:text-3xl font-bold text-gray-900">{stat.value}</p>
                   <p className={`text-xs md:text-sm ${stat.textColor} mt-2 font-medium`}>{stat.change}</p>
                 </CardContent>
@@ -353,7 +348,6 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ user }) => {
               label: 'Favorites',
               value: `${favoriteProductIds.length}`,
               change: 'Saved products',
-              color: 'from-pink-500 to-rose-600',
               textColor: 'text-pink-600',
             },
             {
@@ -375,15 +369,14 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ user }) => {
           ].map((stat, idx) => {
             const Icon = stat.icon;
             return (
-              <Card key={idx} className={`animate-slide-in-bottom card-hover border-0 shadow-medium overflow-hidden`} style={{ animationDelay: `${idx * 50}ms` }}>
-                <div className={`absolute inset-0 bg-gradient-to-br ${stat.color} opacity-10`} />
-                <CardHeader className="pb-3 relative">
+              <Card key={idx} className="card-hover border border-gray-200 shadow-sm bg-white" style={{ animationDelay: `${idx * 50}ms` }}>
+                <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
                     <Icon className="h-5 w-5 md:h-6 md:w-6" />
                     {stat.label}
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="relative">
+                <CardContent>
                   <p className="text-2xl md:text-3xl font-bold text-gray-900">{stat.value}</p>
                   <p className={`text-xs md:text-sm ${stat.textColor} mt-2 font-medium`}>{stat.change}</p>
                 </CardContent>

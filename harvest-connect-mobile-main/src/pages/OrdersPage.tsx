@@ -344,15 +344,14 @@ const OrdersPage: React.FC<OrdersPageProps> = ({ user }) => {
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-5 md:gap-6">
         {[
-          { label: 'Pending', value: statusCounts.pending, icon: '⏱️', color: 'from-amber-500 to-orange-600', textColor: 'text-amber-600' },
-          { label: 'Accepted', value: statusCounts.accepted, icon: '✅', color: 'from-blue-500 to-cyan-600', textColor: 'text-blue-600' },
-          { label: 'Delivered', value: statusCounts.delivered, icon: '📦', color: 'from-green-500 to-emerald-600', textColor: 'text-green-600' },
-          { label: 'Cancelled', value: statusCounts.cancelled, icon: '❌', color: 'from-red-500 to-rose-600', textColor: 'text-red-600' },
-          { label: 'Total Orders', value: statusCounts.all, icon: '📊', color: 'from-purple-500 to-pink-600', textColor: 'text-purple-600' },
+          { label: 'Pending', value: statusCounts.pending, icon: '⏱️', textColor: 'text-amber-600' },
+          { label: 'Accepted', value: statusCounts.accepted, icon: '✅', textColor: 'text-blue-600' },
+          { label: 'Delivered', value: statusCounts.delivered, icon: '📦', textColor: 'text-green-600' },
+          { label: 'Cancelled', value: statusCounts.cancelled, icon: '❌', textColor: 'text-red-600' },
+          { label: 'Total Orders', value: statusCounts.all, icon: '📊', textColor: 'text-purple-600' },
         ].map((stat, index) => (
-          <Card key={stat.label} className="card-hover border-0 overflow-hidden shadow-medium" style={{ animationDelay: `${index * 50}ms` }}>
-            <div className={`absolute inset-0 bg-gradient-to-br ${stat.color} opacity-10`} />
-            <CardContent className="relative pt-6">
+          <Card key={stat.label} className="card-hover border border-gray-200 shadow-sm bg-white" style={{ animationDelay: `${index * 50}ms` }}>
+            <CardContent className="pt-6">
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-3xl font-bold text-gray-900 md:text-4xl">{stat.value}</p>
@@ -365,8 +364,8 @@ const OrdersPage: React.FC<OrdersPageProps> = ({ user }) => {
         ))}
       </div>
 
-      <Tabs defaultValue="all" className="w-full animate-slide-in-bottom" style={{ animationDelay: '200ms' }}>
-        <TabsList className="grid w-full grid-cols-3 bg-gradient-to-r from-gray-100 to-gray-50 sm:grid-cols-5">
+      <Tabs defaultValue="all" className="w-full" style={{ animationDelay: '200ms' }}>
+        <TabsList className="grid w-full grid-cols-3 bg-gray-50 sm:grid-cols-5">
           <TabsTrigger value="all">All ({statusCounts.all})</TabsTrigger>
           <TabsTrigger value="pending">Pending ({statusCounts.pending})</TabsTrigger>
           <TabsTrigger value="accepted">Accepted ({statusCounts.accepted})</TabsTrigger>

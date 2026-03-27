@@ -7,141 +7,80 @@ import { MapPin, Navigation, Search, Filter, LayoutGrid, List } from 'lucide-rea
 import LocationSelector, { LocationOption } from '@/components/Location/LocationSelector';
 import DistanceFilter from '@/components/Location/DistanceFilter';
 import NearbyFarmers, { Farmer } from '@/components/Location/NearbyFarmers';
+import { useGlobalState } from '@/context/GlobalStateContext';
 
 const LocationPage: React.FC = () => {
+  const { users } = useGlobalState();
   const [selectedLocation, setSelectedLocation] = useState<LocationOption | null>(null);
   const [maxDistance, setMaxDistance] = useState(50);
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Sample farmer data across different locations
-  const allFarmers: Record<string, Farmer[]> = {
-    '1': [ // Sector 45, Noida
-      {
-        id: 'f1',
-        name: 'Green Valley Farms',
-        avatar: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Ccircle cx="50" cy="50" r="45" fill="%2322c55e"/%3E%3Ctext x="50" y="60" font-size="40" fill="white" text-anchor="middle" font-family="Arial"%3EGV%3C/text%3E%3C/svg%3E',
-        location: 'Sector 45, Noida',
-        distance: 2.3,
-        rating: 4.8,
-        totalReviews: 324,
-        products: 18,
-        responseTime: '< 30 min',
-        isVerified: true,
-        isFeatured: true,
-        speciality: 'Organic Vegetables',
-        priceRange: '₹30-50/kg',
-        description: 'Family-owned farm with 15+ years of experience in sustainable organic farming. We believe in direct farmer-to-consumer relationships.'
-      },
-      {
-        id: 'f2',
-        name: 'Fresh Harvest Co.',
-        avatar: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Ccircle cx="50" cy="50" r="45" fill="%2316a34a"/%3E%3Ctext x="50" y="60" font-size="40" fill="white" text-anchor="middle" font-family="Arial"%3EFH%3C/text%3E%3C/svg%3E',
-        location: 'Sector 48, Noida',
-        distance: 4.1,
-        rating: 4.6,
-        totalReviews: 256,
-        products: 22,
+  // Get real farmers from context
+  const allFarmers = useMemo(() => {
+    return users
+      .filter(user => user.role === 'farmer')
+      .map(farmer => ({
+        id: farmer.id,
+        name: farmer.farmName || farmer.name,
+        avatar: `data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Ccircle cx="50" cy="50" r="45" fill="%2322c55e"/%3E%3Ctext x="50" y="60" font-size="40" fill="white" text-anchor="middle" font-family="Arial"%3E${(farmer.farmName || farmer.name).substring(0, 2).toUpperCase()}%3C/text%3E%3C/svg%3E`,
+        location: farmer.location,
+        distance: Math.random() * 50, // Simulated distance
+        rating: 4.5 + Math.random() * 0.5,
+        totalReviews: Math.floor(100 + Math.random() * 400),
+        products: 12 + Math.floor(Math.random() * 20),
         responseTime: '< 1 hour',
         isVerified: true,
-        speciality: 'Fresh Fruits & Vegetables',
-        priceRange: '₹25-45/kg',
-        description: 'Premium quality fresh produce delivered daily. Focus on quality over volume with pesticide-free farming.'
-      },
-      {
-        id: 'f3',
-        name: 'Organic Harvest',
-        avatar: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Ccircle cx="50" cy="50" r="45" fill="%2306b6d4"/%3E%3Ctext x="50" y="60" font-size="40" fill="white" text-anchor="middle" font-family="Arial"%3EOH%3C/text%3E%3C/svg%3E',
-        location: 'Sector 50, Noida',
-        distance: 6.2,
-        rating: 4.7,
-        totalReviews: 198,
-        products: 15,
-        responseTime: '< 2 hours',
-        isVerified: true,
-        speciality: '100% Organic Produce',
-        priceRange: '₹40-60/kg',
-        description: 'Certified organic farm committed to sustainable agriculture. Zero use of chemical pesticides or fertilizers.'
+        isFeatured: Math.random() > 0.7,
+        speciality: (farmer.cropTypes || []).join(', ') || 'Fresh Produce',
+        priceRange: '₹20-60/kg',
+        description: farmer.farmDetails || 'Quality fresh produce from local farmer.'
+      }))
+  }, [users]);
+
+  // Map location names to groups
+  const farmersByLocation: Record<string, Farmer[]> = useMemo(() => {
+    const grouped: Record<string, Farmer[]> = {};
+    allFarmers.forEach(farmer => {
+      const City = farmer.location || 'Other';
+      if (!grouped[City]) {
+        grouped[City] = [];
       }
-    ],
-    '2': [ // Greater Noida
-      {
-        id: 'f4',
-        name: 'Honey Sweet Farm',
-        avatar: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Ccircle cx="50" cy="50" r="45" fill="%23fbbf24"/%3E%3Ctext x="50" y="60" font-size="32" fill="white" text-anchor="middle" font-family="Arial"%3E🍯%3C/text%3E%3C/svg%3E',
-        location: 'Greater Noida West',
-        distance: 12.5,
-        rating: 4.9,
-        totalReviews: 412,
-        products: 8,
-        responseTime: '< 45 min',
-        isVerified: true,
-        isFeatured: true,
-        speciality: 'Pure Honey & Bee Products',
-        priceRange: '₹250-400/kg',
-        description: 'Pure, natural honey from sustainable beekeeping. All honey tested in certified labs.'
-      },
-      {
-        id: 'f5',
-        name: 'Farm Fresh Direct',
-        avatar: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Ccircle cx="50" cy="50" r="45" fill="%2384cc16"/%3E%3Ctext x="50" y="60" font-size="40" fill="white" text-anchor="middle" font-family="Arial"%3EFF%3C/text%3E%3C/svg%3E',
-        location: 'Greater Noida',
-        distance: 14.8,
-        rating: 4.5,
-        totalReviews: 187,
-        products: 20,
-        responseTime: '< 3 hours',
-        isVerified: false,
-        speciality: 'Mixed Vegetables & Fruits',
-        priceRange: '₹20-40/kg',
-        description: 'Affordable, fresh produce delivered to your doorstep every morning.'
-      }
-    ],
-    '3': [ // Delhi
-      {
-        id: 'f6',
-        name: 'Delhi Farm Co-operative',
-        avatar: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Ccircle cx="50" cy="50" r="45" fill="%23ec4899"/%3E%3Ctext x="50" y="60" font-size="40" fill="white" text-anchor="middle" font-family="Arial"%3EDF%3C/text%3E%3C/svg%3E',
-        location: 'North Delhi',
-        distance: 28.3,
-        rating: 4.6,
-        totalReviews: 289,
-        products: 25,
-        responseTime: '< 2 hours',
-        isVerified: true,
-        speciality: 'Multi-produce Supplier',
-        priceRange: '₹18-50/kg',
-        description: 'Large cooperative of farmers supplying quality produce to Delhi NCR region.'
-      }
-    ],
-    '4': [ // Gurgaon
-      {
-        id: 'f7',
-        name: 'Premium Agri Solutions',
-        avatar: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Ccircle cx="50" cy="50" r="45" fill="%238b5cf6"/%3E%3Ctext x="50" y="60" font-size="40" fill="white" text-anchor="middle" font-family="Arial"%3EPA%3C/text%3E%3C/svg%3E',
-        location: 'Gurgaon',
-        distance: 35.6,
-        rating: 4.7,
-        totalReviews: 156,
-        products: 30,
-        responseTime: '< 1 hour',
-        isVerified: true,
-        speciality: 'Premium & Exotic Vegetables',
-        priceRange: '₹50-100/kg',
-        description: 'Specializing in premium quality vegetables and exotic produce for premium customers.'
-      }
-    ]
-  };
+      grouped[City].push(farmer);
+    });
+    return grouped;
+  }, [allFarmers]);
+
+  // Get unique locations from farmers (those with location filled)
+  const availableLocations = useMemo(() => {
+    const farmersWithLocation = allFarmers.filter(f => f.location && f.location.trim());
+    
+    if (farmersWithLocation.length === 0) {
+      // If no farmers have location yet, provide empty array to let LocationSelector use defaults
+      return [];
+    }
+    
+    const locSet = new Set(farmersWithLocation.map(f => f.location).filter(Boolean));
+    return Array.from(locSet).map((city, idx) => ({
+      id: (idx + 1).toString(),
+      name: city,
+      city: city,
+      state: 'India'
+    }));
+  }, [allFarmers]);
+
+  // Check if any farmers exist in system at all
+  const hasFarmersInSystem = users.some(u => u.role === 'farmer');
 
   // Get farmers for selected location
   const nearbyFarmers = useMemo(() => {
     if (!selectedLocation) return [];
 
-    const farmersInLocation = allFarmers[selectedLocation.id] || [];
+    const farmersInLocation = farmersByLocation[selectedLocation.city] || [];
     
     // Filter by distance
     return farmersInLocation.filter(farmer => farmer.distance <= maxDistance);
-  }, [selectedLocation, maxDistance]);
+  }, [selectedLocation, maxDistance, farmersByLocation]);
 
   const handleDistanceChange = (distance: number) => {
     setMaxDistance(distance);
@@ -193,11 +132,14 @@ const LocationPage: React.FC = () => {
                 value={selectedLocation}
                 onChange={handleLocationChange}
                 placeholder="Select location..."
+                locations={availableLocations.length > 0 ? availableLocations : undefined}
               />
               <p className="text-xs text-gray-500">
                 {selectedLocation
                   ? `Showing farmers in ${selectedLocation.city}`
-                  : 'Select a location to find nearby farmers'}
+                  : availableLocations.length > 0
+                  ? 'Select a location to find nearby farmers'
+                  : 'No farmers registered yet'}
               </p>
             </CardContent>
           </Card>

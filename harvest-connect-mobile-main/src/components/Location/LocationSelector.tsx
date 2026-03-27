@@ -30,19 +30,21 @@ interface LocationSelectorProps {
   onChange: (location: LocationOption | null) => void;
   placeholder?: string;
   disabled?: boolean;
+  locations?: LocationOption[];
 }
 
 const LocationSelector: React.FC<LocationSelectorProps> = ({
   value,
   onChange,
   placeholder = 'Select or search location...',
-  disabled = false
+  disabled = false,
+  locations: providedLocations
 }) => {
   const [open, setOpen] = useState(false);
   const [searchInput, setSearchInput] = useState('');
 
-  // Sample locations database
-  const locations: LocationOption[] = [
+  // Use provided locations or fallback to default sample locations
+  const locations: LocationOption[] = providedLocations || [
     {
       id: '1',
       name: 'Sector 45',
