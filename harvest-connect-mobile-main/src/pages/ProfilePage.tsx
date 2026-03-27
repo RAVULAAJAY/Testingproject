@@ -34,7 +34,7 @@ const getDashboardPath = (role: UserRole): string => {
 
 const ProfilePage: React.FC<ProfilePageProps> = ({ user, requireCompletion = false }) => {
   const navigate = useNavigate();
-  const { updateUser, products, orders } = useGlobalState();
+  const { updateUser, products, orders, favoriteProductIds, getOrderCountByBuyer, getTotalSpentByBuyer } = useGlobalState();
   const [searchParams, setSearchParams] = useSearchParams();
   const [isEditing, setIsEditing] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved'>('idle');
@@ -97,6 +97,18 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, requireCompletion = fal
       deliveredOrders,
     };
   }, [orders, products, user.id, user.role]);
+
+  const buyerStats = useMemo(() => {
+    if (user.role !== 'buyer') {
+      return { ordersPlaced: 0, totalSpent: 0, savedItems: 0 };
+    }
+
+    return {
+      ordersPlaced: getOrderCountByBuyer(user.id),
+      totalSpent: getTotalSpentByBuyer(user.id),
+      savedItems: favoriteProductIds.length,
+    };
+  }, [favoriteProductIds.length, getOrderCountByBuyer, getTotalSpentByBuyer, user.id, user.role]);
 
   const getRoleEmoji = (role: string) => {
     switch(role) {
@@ -331,7 +343,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, requireCompletion = fal
               <CardTitle className="text-sm font-medium text-gray-600">Orders Placed</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold text-blue-600">8</p>
+              <p className="text-2xl font-bold text-blue-600">{buyerStats.ordersPlaced}</p>
             </CardContent>
           </Card>
           <Card>
@@ -339,7 +351,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, requireCompletion = fal
               <CardTitle className="text-sm font-medium text-gray-600">Total Spent</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold text-green-600">₹12,500</p>
+              <p className="text-2xl font-bold text-green-600">₹{buyerStats.totalSpent.toLocaleString()}</p>
             </CardContent>
           </Card>
           <Card>
@@ -347,7 +359,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, requireCompletion = fal
               <CardTitle className="text-sm font-medium text-gray-600">Saved Items</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold text-purple-600">15</p>
+              <p className="text-2xl font-bold text-purple-600">{buyerStats.savedItems}</p>
             </CardContent>
           </Card>
         </div>
@@ -383,7 +395,33 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, requireCompletion = fal
               </div>
             </>
           ) : (
-            <p className="text-gray-700">Quality-focused buyer committed to supporting local farmers.</p>
+            <div className="space-y-3 text-gray-700">
+              <p>
+                {user.location
+                  ? `Buyer based in ${user.location}.`
+                  : 'Buyer profile details are shown here.'}
+              </p>
+              <div className="grid gap-3 md:grid-cols-2 text-sm">
+                <div className="rounded-lg border bg-gray-50 p-3">
+                  <p className="text-gray-500">Email</p>
+                  <p className="font-medium text-gray-900">{user.email}</p>
+                </div>
+                <div className="rounded-lg border bg-gray-50 p-3">
+                  <p className="text-gray-500">Phone</p>
+                  <p className="font-medium text-gray-900">{user.phone || 'Not added'}</p>
+                </div>
+                <div className="rounded-lg border bg-gray-50 p-3">
+                  <p className="text-gray-500">Location</p>
+                  <p className="font-medium text-gray-900">{user.location || 'Not added'}</p>
+                </div>
+                <div className="rounded-lg border bg-gray-50 p-3">
+                  <p className="text-gray-500">Joined</p>
+                  <p className="font-medium text-gray-900">
+                    {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Not available'}
+                  </p>
+                </div>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>

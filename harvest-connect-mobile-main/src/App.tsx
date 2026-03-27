@@ -29,6 +29,7 @@ import BuyerDashboardPage from "./pages/Buyer/BuyerDashboardPage";
 import AddPaymentPage from "./pages/Buyer/AddPaymentPage";
 import CartPage from "./pages/Buyer/CartPage";
 import CheckoutPage from "./pages/Buyer/CheckoutPage";
+import FavoritesPage from "./pages/Buyer/FavoritesPage";
 import FarmerPaymentsPage from "./pages/Farmer/FarmerPaymentsPage";
 import AdminDashboard from "./components/AdminDashboard";
 import ProductDetailsPage from "./pages/ProductDetailsPage";
@@ -391,6 +392,18 @@ const AppRoutes = () => {
                     currentPath="/cart"
                   >
                     <CartPage />
+                  </Layout>
+                }
+              />
+              <Route
+                path="/favorites"
+                element={
+                  <Layout
+                    user={currentUser}
+                    onLogout={logout}
+                    currentPath="/favorites"
+                  >
+                    <FavoritesPage />
                   </Layout>
                 }
               />

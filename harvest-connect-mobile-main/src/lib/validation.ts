@@ -38,6 +38,25 @@ export interface FarmerSignupValidationInput {
   upiId: string;
 }
 
+export interface BuyerSignupValidationInput {
+  name: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+  phone: string;
+  location: string;
+  farmLatitude: string;
+  farmLongitude: string;
+  profilePhotoFileName: string;
+  profilePhotoDataUrl: string;
+  idProofFileName: string;
+  idProofFileSize: number;
+  bankName: string;
+  accountNumber: string;
+  ifscCode: string;
+  upiId: string;
+}
+
 // Validate email
 export const validateEmail = (email: string): string | null => {
   if (!email) {
@@ -163,6 +182,21 @@ const validateIdProof = (fileName: string, fileSize: number): ValidationError[] 
   return errors;
 };
 
+const validateProfilePhoto = (fileName: string, dataUrl: string): ValidationError[] => {
+  const errors: ValidationError[] = [];
+
+  if (!dataUrl.trim()) {
+    errors.push({ field: 'profilePhoto', message: 'Profile photo is required' });
+    return errors;
+  }
+
+  if (fileName.trim() && !/\.(png|jpg|jpeg|webp)$/i.test(fileName.trim())) {
+    errors.push({ field: 'profilePhoto', message: 'Upload a PNG, JPG, JPEG, or WEBP image' });
+  }
+
+  return errors;
+};
+
 const validatePaymentDetails = (
   bankName: string,
   accountNumber: string,
@@ -222,6 +256,45 @@ export const validateFarmerSignupForm = (formData: FarmerSignupValidationInput):
   }
 
   errors.push(...validateCoordinates(formData.farmLatitude, formData.farmLongitude));
+  errors.push(...validateIdProof(formData.idProofFileName, formData.idProofFileSize));
+  errors.push(
+    ...validatePaymentDetails(
+      formData.bankName,
+      formData.accountNumber,
+      formData.ifscCode,
+      formData.upiId
+    )
+  );
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+  };
+};
+
+export const validateBuyerSignupForm = (formData: BuyerSignupValidationInput): ValidationResult => {
+  const errors: ValidationError[] = [];
+
+  const nameError = validateName(formData.name);
+  if (nameError) errors.push({ field: 'name', message: nameError });
+
+  const emailError = validateEmail(formData.email);
+  if (emailError) errors.push({ field: 'email', message: emailError });
+
+  const passwordError = validatePassword(formData.password);
+  if (passwordError) errors.push({ field: 'password', message: passwordError });
+
+  const passwordMatchError = validatePasswordMatch(formData.password, formData.confirmPassword);
+  if (passwordMatchError) errors.push({ field: 'confirmPassword', message: passwordMatchError });
+
+  const phoneError = validatePhone(formData.phone);
+  if (phoneError) errors.push({ field: 'phone', message: phoneError });
+
+  const locationError = validateLocation(formData.location);
+  if (locationError) errors.push({ field: 'location', message: locationError });
+
+  errors.push(...validateCoordinates(formData.farmLatitude, formData.farmLongitude));
+  errors.push(...validateProfilePhoto(formData.profilePhotoFileName, formData.profilePhotoDataUrl));
   errors.push(...validateIdProof(formData.idProofFileName, formData.idProofFileSize));
   errors.push(
     ...validatePaymentDetails(

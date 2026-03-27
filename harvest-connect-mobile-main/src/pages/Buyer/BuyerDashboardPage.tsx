@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Bell, Compass, Heart, MapPin, MessageSquare, ShoppingBag, Truck } from 'lucide-react';
+import { Bell, Compass, Heart, MapPin, MessageSquare, ShoppingBag, Star, Truck } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useGlobalState } from '@/context/GlobalStateContext';
 
@@ -93,6 +93,10 @@ const BuyerDashboardPage: React.FC = () => {
               <Button className="bg-white text-blue-700 hover:bg-blue-50" onClick={() => navigate('/notifications')}>
                 <Bell className="mr-2 h-4 w-4" />
                 Alerts
+              </Button>
+              <Button className="bg-white text-blue-700 hover:bg-blue-50" onClick={() => navigate('/ratings')}>
+                <Star className="mr-2 h-4 w-4" />
+                Ratings & Reviews
               </Button>
             </div>
           </div>
@@ -222,7 +226,7 @@ const BuyerDashboardPage: React.FC = () => {
             <Heart className="h-4 w-4 text-rose-500" />
             {stats.savedProducts} saved product{stats.savedProducts === 1 ? '' : 's'}
           </div>
-          <Button variant="outline" onClick={() => navigate('/browse')}>
+          <Button variant="outline" onClick={() => navigate('/favorites')}>
             Manage Wishlist
           </Button>
         </CardContent>

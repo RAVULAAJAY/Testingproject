@@ -9,6 +9,7 @@ import {
   validateSignupForm,
   validateLoginForm,
   validateFarmerSignupForm,
+  validateBuyerSignupForm,
   getPasswordStrengthLabel,
   ValidationError,
 } from '@/lib/validation';
@@ -90,6 +91,8 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
   const [isLocatingBuyer, setIsLocatingBuyer] = useState(false);
   const [idProofFileName, setIdProofFileName] = useState('');
   const [idProofFileSize, setIdProofFileSize] = useState(0);
+  const [buyerIdProofFileName, setBuyerIdProofFileName] = useState('');
+  const [buyerIdProofFileSize, setBuyerIdProofFileSize] = useState(0);
   const [farmerPhotoName, setFarmerPhotoName] = useState('');
   const [farmerProfilePhoto, setFarmerProfilePhoto] = useState('');
   const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -233,7 +236,7 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
 
     const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
     setFarmerProfilePhoto(dataUrl);
-    setFarmerPhotoName('Live photo captured');
+    setFarmerPhotoName('live-photo.jpg');
     setFieldErrors((prev) => ({ ...prev, profilePhoto: '' }));
     closeCamera();
   };
@@ -330,6 +333,8 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
         ? `${data.display_name} (${latitude}, ${longitude})`
         : `${latitude}, ${longitude}`;
       updateField('location', locationValue);
+      updateField('farmLatitude', latitude);
+      updateField('farmLongitude', longitude);
       setIsBuyerLocationGranted(true);
     } catch {
       setIsBuyerLocationGranted(false);
@@ -354,6 +359,21 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
     }
   };
 
+  const handleBuyerIdProofUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    setBuyerIdProofFileName(file.name);
+    setBuyerIdProofFileSize(file.size);
+
+    if (fieldErrors.idProof) {
+      setFieldErrors((prev) => ({ ...prev, idProof: '' }));
+    }
+  };
+
   const handleFarmerPhotoUpload = async (
     event: React.ChangeEvent<HTMLInputElement>,
   ) => {
@@ -364,13 +384,13 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
     }
 
     if (!file.type.startsWith('image/')) {
-      setFieldError('profilePhoto', 'Please choose an image file for the farmer photo.');
+      setFieldError('profilePhoto', 'Please choose an image file for the profile photo.');
       event.target.value = '';
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      setFieldError('profilePhoto', 'Farmer photo must be less than 5 MB.');
+      setFieldError('profilePhoto', 'Profile photo must be less than 5 MB.');
       event.target.value = '';
       return;
     }
@@ -412,6 +432,25 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
                 ifscCode: formData.ifscCode,
                 upiId: formData.upiId,
               })
+            : isBuyerSignup
+            ? validateBuyerSignupForm({
+                name: formData.name,
+                email: formData.email,
+                password: formData.password,
+                confirmPassword: formData.confirmPassword,
+                phone: formData.phone,
+                location: formData.location,
+                farmLatitude: formData.farmLatitude,
+                farmLongitude: formData.farmLongitude,
+                profilePhotoFileName: farmerPhotoName,
+                profilePhotoDataUrl: farmerProfilePhoto,
+                idProofFileName: buyerIdProofFileName,
+                idProofFileSize: buyerIdProofFileSize,
+                bankName: formData.bankName,
+                accountNumber: formData.accountNumber,
+                ifscCode: formData.ifscCode,
+                upiId: formData.upiId,
+              })
             : validateSignupForm({
                 name: formData.name,
                 email: formData.email,
@@ -440,6 +479,14 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
 
         if (!isBuyerLocationGranted) {
           signupErrors.location = 'Allow location access to enable nearby results.';
+        }
+
+        if (!farmerProfilePhoto) {
+          signupErrors.profilePhoto = 'Add a profile photo to complete signup.';
+        }
+
+        if (!buyerIdProofFileName) {
+          signupErrors.idProof = 'Add ID proof to complete signup.';
         }
 
         if (Object.keys(signupErrors).length > 0) {
@@ -487,11 +534,14 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
                   ? (isFarmerSignup ? formData.address.trim() : formData.location.trim())
                   : existingUser?.location ?? '',
               role,
-              profilePhoto: role === 'farmer' ? farmerProfilePhoto || existingUser?.profilePhoto : existingUser?.profilePhoto,
+              profilePhoto:
+                role === 'farmer' || role === 'buyer'
+                  ? farmerProfilePhoto || existingUser?.profilePhoto
+                  : existingUser?.profilePhoto,
               farmName: role === 'farmer' ? existingUser?.farmName ?? `${formData.name.trim()}'s Farm` : undefined,
               cropTypes: role === 'farmer' ? existingUser?.cropTypes ?? ['Mixed Crops'] : undefined,
               paymentDetails:
-                role === 'farmer'
+                role === 'farmer' || role === 'buyer'
                   ? {
                       bankName: formData.bankName.trim() || existingUser?.paymentDetails?.bankName || 'UPI Only',
                       accountNumber:
@@ -525,6 +575,18 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
                       phoneVerified: true,
                     }
                   : existingUser?.farmerOnboarding,
+              buyerOnboarding:
+                role === 'buyer' && mode === 'signup'
+                  ? {
+                      location: formData.location.trim(),
+                      locationCoordinates: {
+                        latitude: Number(formData.farmLatitude),
+                        longitude: Number(formData.farmLongitude),
+                      },
+                      profilePhotoFileName: farmerPhotoName || undefined,
+                      idProofFileName: buyerIdProofFileName || undefined,
+                    }
+                  : existingUser?.buyerOnboarding,
               createdAt: existingUser?.createdAt ?? new Date().toISOString(),
             };
 
@@ -784,6 +846,144 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
                         <span className="text-sm text-emerald-700 font-medium">Location access granted</span>
                       )}
                     </div>
+
+                    {mapPreviewSrc && (
+                      <div className="rounded-lg overflow-hidden border h-64">
+                        <iframe
+                          title="Buyer location map"
+                          src={mapPreviewSrc}
+                          className="h-full w-full"
+                          loading="lazy"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="rounded-xl border bg-white p-4 md:p-6 space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Camera className="h-5 w-5 text-blue-600" />
+                      <h3 className="text-lg font-semibold text-gray-900">Profile Photo</h3>
+                    </div>
+
+                    <div className="flex flex-col gap-4 md:flex-row md:items-center">
+                      <div className="h-28 w-28 overflow-hidden rounded-2xl border bg-gray-50 flex items-center justify-center shrink-0">
+                        {farmerProfilePhoto ? (
+                          <img src={farmerProfilePhoto} alt="Buyer preview" className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="text-center px-3 text-xs text-gray-500">No photo selected</div>
+                        )}
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="flex flex-wrap gap-2">
+                          <label className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium cursor-pointer hover:bg-gray-50">
+                            <Upload className="h-4 w-4" />
+                            Upload Existing Photo
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={handleFarmerPhotoUpload}
+                            />
+                          </label>
+                          <Button type="button" variant="outline" className="gap-2" onClick={openLiveCamera} disabled={isCameraStarting}>
+                            <Camera className="h-4 w-4" />
+                            {isCameraStarting ? 'Opening Camera...' : 'Take Live Photo'}
+                          </Button>
+                        </div>
+                        <p className="text-sm text-gray-600">
+                          {farmerPhotoName || 'Choose an existing photo or capture a live photo.'}
+                        </p>
+                        {fieldErrors.profilePhoto && <p className="text-sm text-red-600">{fieldErrors.profilePhoto}</p>}
+                        {cameraError && <p className="text-sm text-red-600">{cameraError}</p>}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border bg-white p-4 md:p-6 space-y-4">
+                    <h3 className="text-lg font-semibold text-gray-900">ID Proof & Payment Details</h3>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="buyerIdProof">ID Proof Upload (PDF/JPG/PNG, max 5 MB)</Label>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <label className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium cursor-pointer hover:bg-gray-50">
+                          <Upload className="h-4 w-4" />
+                          Upload File
+                          <input
+                            id="buyerIdProof"
+                            name="buyerIdProof"
+                            type="file"
+                            accept=".pdf,.png,.jpg,.jpeg"
+                            className="hidden"
+                            onChange={handleBuyerIdProofUpload}
+                          />
+                        </label>
+                        <span className="text-sm text-gray-600">
+                          {buyerIdProofFileName || 'No file selected'}
+                        </span>
+                      </div>
+                      {fieldErrors.idProof && <p className="text-sm text-red-600">{fieldErrors.idProof}</p>}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="bankName">Bank Name</Label>
+                        <Input
+                          id="bankName"
+                          name="bankName"
+                          value={formData.bankName}
+                          onChange={(e) => updateField('bankName', e.target.value)}
+                          placeholder="e.g. HDFC Bank"
+                          className={fieldErrors.bankName ? 'border-red-500' : ''}
+                        />
+                        {fieldErrors.bankName && <p className="text-sm text-red-600">{fieldErrors.bankName}</p>}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="accountNumber">Account Number</Label>
+                        <Input
+                          id="accountNumber"
+                          name="accountNumber"
+                          value={formData.accountNumber}
+                          onChange={(e) => updateField('accountNumber', e.target.value)}
+                          placeholder="9 to 18 digit account number"
+                          className={fieldErrors.accountNumber ? 'border-red-500' : ''}
+                        />
+                        {fieldErrors.accountNumber && (
+                          <p className="text-sm text-red-600">{fieldErrors.accountNumber}</p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="ifscCode">IFSC Code</Label>
+                        <Input
+                          id="ifscCode"
+                          name="ifscCode"
+                          value={formData.ifscCode}
+                          onChange={(e) => updateField('ifscCode', e.target.value.toUpperCase())}
+                          placeholder="e.g. SBIN0001234"
+                          className={fieldErrors.ifscCode ? 'border-red-500' : ''}
+                        />
+                        {fieldErrors.ifscCode && <p className="text-sm text-red-600">{fieldErrors.ifscCode}</p>}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="upiId">UPI ID</Label>
+                        <Input
+                          id="upiId"
+                          name="upiId"
+                          value={formData.upiId}
+                          onChange={(e) => updateField('upiId', e.target.value)}
+                          placeholder="e.g. buyer@upi"
+                          className={fieldErrors.upiId ? 'border-red-500' : ''}
+                        />
+                        {fieldErrors.upiId && <p className="text-sm text-red-600">{fieldErrors.upiId}</p>}
+                      </div>
+                    </div>
+
+                    {fieldErrors.paymentDetails && (
+                      <p className="text-sm text-red-600">{fieldErrors.paymentDetails}</p>
+                    )}
                   </div>
                 </div>
               )}

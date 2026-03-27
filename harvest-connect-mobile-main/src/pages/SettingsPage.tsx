@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,8 @@ import {
   Trash2,
   AlertCircle
 } from 'lucide-react';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { User } from '@/context/AuthContext';
 import { useGlobalState } from '@/context/GlobalStateContext';
 
@@ -21,7 +23,8 @@ interface SettingsPageProps {
 
 const SettingsPage: React.FC<SettingsPageProps> = ({ user }) => {
   const [activeTab, setActiveTab] = useState('general');
-  const { updateUser } = useGlobalState();
+  const { updateUser, orders } = useGlobalState();
+  const [isExporting, setIsExporting] = useState(false);
   const [profileForm, setProfileForm] = useState({
     name: user.name,
     email: user.email,
@@ -42,6 +45,257 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user }) => {
       farmDetails: user.farmDetails ?? '',
     });
   }, [user.name, user.email, user.phone, user.location, user.farmName, user.farmDetails]);
+
+  const userOrders = useMemo(() => {
+    if (user.role === 'farmer') {
+      return orders.filter((order) => order.farmerId === user.id);
+    }
+
+    if (user.role === 'buyer') {
+      return orders.filter((order) => order.buyerId === user.id);
+    }
+
+    return orders;
+  }, [orders, user.id, user.role]);
+
+  const formatCurrency = (value: number) => `₹${value.toFixed(2)}`;
+
+  const loadImageDataUrl = (source: string) => {
+    return new Promise<string | null>((resolve) => {
+      if (!source) {
+        resolve(null);
+        return;
+      }
+
+      if (source.startsWith('data:image/')) {
+        resolve(source);
+        return;
+      }
+
+      const image = new window.Image();
+      image.crossOrigin = 'anonymous';
+      image.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = image.width;
+          canvas.height = image.height;
+          const context = canvas.getContext('2d');
+          if (!context) {
+            resolve(null);
+            return;
+          }
+
+          context.drawImage(image, 0, 0);
+          resolve(canvas.toDataURL('image/png'));
+        } catch {
+          resolve(null);
+        }
+      };
+      image.onerror = () => resolve(null);
+      image.src = source;
+    });
+  };
+
+  const drawWrappedRow = (
+    pdfDoc: jsPDF,
+    label: string,
+    value: string,
+    labelX: number,
+    valueX: number,
+    y: number,
+    maxValueWidth: number,
+    rowGap: number,
+  ) => {
+    pdfDoc.setFont('helvetica', 'bold');
+    pdfDoc.setTextColor(71, 85, 105);
+    pdfDoc.text(label, labelX, y);
+
+    pdfDoc.setFont('helvetica', 'normal');
+    pdfDoc.setTextColor(15, 23, 42);
+    const wrappedValue = pdfDoc.splitTextToSize(value, maxValueWidth);
+    pdfDoc.text(wrappedValue, valueX, y);
+
+    const lineCount = Array.isArray(wrappedValue) ? wrappedValue.length : 1;
+    return y + Math.max(1, lineCount) * rowGap;
+  };
+
+  const handleDownloadMyData = async () => {
+    setIsExporting(true);
+
+    try {
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 14;
+      const contentWidth = pageWidth - margin * 2;
+      const brandedGreen = '#15803d';
+      const brandDark = '#0f172a';
+      let cursorY = 18;
+
+      pdf.setFillColor(21, 128, 61);
+      pdf.rect(0, 0, pageWidth, 30, 'F');
+      pdf.setTextColor(255, 255, 255);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(20);
+      pdf.text('FarmDirect', margin, 14);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(10);
+      pdf.text('Personal data export and account history', margin, 22);
+
+      pdf.setTextColor(15, 23, 42);
+      cursorY = 42;
+
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(16);
+      pdf.text('Profile Summary', margin, cursorY);
+      cursorY += 6;
+
+      pdf.setDrawColor(226, 232, 240);
+      pdf.setFillColor(248, 250, 252);
+      const profileCardTop = cursorY;
+      const profileCardHeight = user.role === 'farmer' && user.farmDetails ? 58 : 50;
+      pdf.roundedRect(margin, profileCardTop, contentWidth, profileCardHeight, 3, 3, 'FD');
+
+      const profileImage = await loadImageDataUrl(user.profilePhoto ?? '');
+      if (profileImage) {
+        pdf.addImage(profileImage, 'PNG', margin + 4, profileCardTop + 4, 28, 28, undefined, 'FAST');
+      } else {
+        pdf.setDrawColor(203, 213, 225);
+        pdf.setFillColor(241, 245, 249);
+        pdf.circle(margin + 18, profileCardTop + 18, 14, 'FD');
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(14);
+        pdf.setTextColor(71, 85, 105);
+        const initials = user.name
+          .split(' ')
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((part) => part[0]?.toUpperCase() ?? '')
+          .join('');
+        pdf.text(initials || 'FD', margin + 18, profileCardTop + 20, { align: 'center' });
+      }
+
+      const profileX = margin + 36;
+      const profileDetails = [
+        { label: 'Name', value: user.name },
+        { label: 'Email', value: user.email },
+        { label: 'Phone', value: user.phone || 'Not provided' },
+        { label: 'Location', value: user.location || 'Not provided' },
+      ];
+
+      pdf.setTextColor(15, 23, 42);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(11);
+      pdf.text(user.role === 'farmer' ? (user.farmName ?? `${user.name}'s Farm`) : 'Account Details', profileX, cursorY + 9);
+
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(10);
+      let detailsY = profileCardTop + 16;
+      const labelX = profileX;
+      const valueX = profileX + 22;
+      const maxValueWidth = margin + contentWidth - valueX - 4;
+
+      profileDetails.forEach((item) => {
+        detailsY = drawWrappedRow(pdf, `${item.label}:`, item.value, labelX, valueX, detailsY, maxValueWidth, 5);
+      });
+
+      cursorY = profileCardTop + profileCardHeight + 10;
+
+      if (user.role === 'farmer' && user.farmDetails) {
+        pdf.setDrawColor(226, 232, 240);
+        pdf.setFillColor(248, 250, 252);
+        const bioCardHeight = Math.max(24, pdf.splitTextToSize(user.farmDetails, contentWidth - 8).length * 5 + 16);
+        pdf.roundedRect(margin, cursorY, contentWidth, bioCardHeight, 3, 3, 'FD');
+
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(11);
+        pdf.setTextColor(15, 23, 42);
+        pdf.text('Farm Bio', margin + 4, cursorY + 8);
+
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(10);
+        pdf.setTextColor(71, 85, 105);
+        const bioLines = pdf.splitTextToSize(user.farmDetails, contentWidth - 8);
+        pdf.text(bioLines, margin + 4, cursorY + 15);
+
+        cursorY += bioCardHeight + 8;
+      }
+
+      pdf.setTextColor(15, 23, 42);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(16);
+      pdf.text('Order History', margin, cursorY);
+      cursorY += 4;
+
+      if (userOrders.length === 0) {
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(10);
+        pdf.setTextColor(71, 85, 105);
+        pdf.text('No orders found for this account.', margin, cursorY + 8);
+      } else {
+        autoTable(pdf, {
+          startY: cursorY + 4,
+          head: [[
+            'Date',
+            'Order ID',
+            'Product',
+            'Qty',
+            'Amount',
+            'Status',
+            user.role === 'farmer' ? 'Buyer' : 'Farmer',
+          ]],
+          body: userOrders
+            .slice()
+            .sort((left, right) => new Date(right.orderDate).getTime() - new Date(left.orderDate).getTime())
+            .map((order) => [
+              order.orderDate,
+              order.id,
+              order.productName,
+              String(order.quantity),
+              formatCurrency(order.totalPrice),
+              order.status,
+              user.role === 'farmer' ? order.buyerName : order.farmerName,
+            ]),
+          theme: 'grid',
+          styles: {
+            font: 'helvetica',
+            fontSize: 8,
+            textColor: brandDark,
+            lineColor: '#dbe4ee',
+            lineWidth: 0.2,
+          },
+          headStyles: {
+            fillColor: brandedGreen,
+            textColor: '#ffffff',
+            fontStyle: 'bold',
+          },
+          alternateRowStyles: {
+            fillColor: '#f8fafc',
+          },
+          margin: { left: margin, right: margin },
+        });
+      }
+
+      const finalY = (pdf as jsPDF & { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY ?? cursorY + 14;
+      const footerY = Math.min(finalY + 10, pageHeight - 18);
+      pdf.setDrawColor(226, 232, 240);
+      pdf.line(margin, footerY - 6, pageWidth - margin, footerY - 6);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(9);
+      pdf.setTextColor(71, 85, 105);
+      pdf.text(`Generated on ${new Date().toLocaleString()}`, margin, footerY);
+      pdf.text('FarmDirect account export', pageWidth - margin, footerY, { align: 'right' });
+
+      const filename = `FarmDirect_${user.role}_${user.name.replace(/[^a-z0-9]+/gi, '_').toLowerCase()}_data_export.pdf`;
+      pdf.save(filename);
+      setStatusMessage('Your FarmDirect PDF export has been downloaded.');
+      window.setTimeout(() => setStatusMessage(''), 2500);
+    } catch {
+      setStatusMessage('Unable to create the PDF export right now.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const handleSaveProfile = () => {
     updateUser(user.id, {
@@ -306,9 +560,14 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user }) => {
               <CardTitle>Data & Privacy</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Button variant="outline" className="w-full justify-start">
+              <Button
+                variant="outline"
+                className="w-full justify-start"
+                onClick={handleDownloadMyData}
+                disabled={isExporting}
+              >
                 <Eye className="h-4 w-4 mr-2" />
-                Download My Data
+                {isExporting ? 'Preparing PDF...' : 'Download My Data'}
               </Button>
               <Button variant="outline" className="w-full justify-start">
                 <Trash2 className="h-4 w-4 mr-2" />

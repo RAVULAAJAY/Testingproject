@@ -42,6 +42,13 @@ export interface FarmerOnboardingDetails {
   phoneVerified: boolean;
 }
 
+export interface BuyerOnboardingDetails {
+  location: string;
+  locationCoordinates: FarmerLocation;
+  profilePhotoFileName?: string;
+  idProofFileName?: string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -58,6 +65,7 @@ export interface User {
   paymentDetails?: FarmerPaymentDetails;
   farmDetails?: string;
   farmerOnboarding?: FarmerOnboardingDetails;
+  buyerOnboarding?: BuyerOnboardingDetails;
   createdAt?: string;
 }
 

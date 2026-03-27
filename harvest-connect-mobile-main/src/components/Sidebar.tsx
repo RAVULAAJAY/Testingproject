@@ -69,7 +69,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard', show: true },
     { icon: BarChart3, label: 'Farm Dashboard', path: '/farmer/dashboard', show: isFarmer },
-    { icon: ShoppingCart, label: 'My Listings', path: '/my-listings', show: isFarmer },
     { icon: BarChart3, label: 'Orders Received', path: '/orders', show: isFarmer },
     { icon: BarChart3, label: 'Buyer Dashboard', path: '/buyer/dashboard', show: isBuyer },
     { icon: ShoppingCart, label: 'Browse Listings', path: '/browse', show: isBuyer },
@@ -81,7 +80,6 @@ const Sidebar: React.FC<SidebarProps> = ({
     { icon: ShoppingCart, label: 'Listings', path: '/admin/dashboard?tab=products', show: isAdmin },
     { icon: BarChart3, label: 'Reports', path: '/admin/dashboard?tab=orders', show: isAdmin },
     { icon: MessageSquare, label: 'Messages', path: '/messages', show: true },
-    { icon: MessageCircle, label: 'Chat', path: '/chat', show: true },
     { icon: MapPin, label: 'Find Farmers', path: '/locations', show: true },
     { icon: CreditCard, label: paymentLabel, path: paymentPath, show: isFarmer || isBuyer },
     { icon: Star, label: 'Ratings & Reviews', path: '/ratings', show: true },
