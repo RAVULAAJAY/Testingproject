@@ -148,17 +148,32 @@ const LocationPage: React.FC = () => {
           <CardContent className="space-y-3">
             {selectedLocation ? (
               <>
-                <div className="overflow-hidden rounded-xl border bg-white">
-                  <iframe
-                    title={`${selectedLocation.city} map preview`}
-                    src={mapUrl}
-                    className="h-72 w-full"
-                    loading="lazy"
-                  />
+                <div className="overflow-hidden rounded-xl border bg-gradient-to-br from-green-50 via-white to-blue-50 p-6 shadow-sm">
+                  <div className="flex h-72 flex-col items-center justify-center rounded-lg border border-dashed border-green-200 bg-white/70 px-6 text-center">
+                    <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-green-700 shadow-inner">
+                      <MapPin className="h-8 w-8" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {selectedLocation.city}, {selectedLocation.state}
+                    </h3>
+                    <p className="mt-2 max-w-md text-sm text-gray-600">
+                      Preview selected location on the map and use the search below to fetch matching farmers in the app.
+                    </p>
+
+                    <div className="mt-5 flex flex-wrap items-center justify-center gap-2 text-xs text-gray-500">
+                      {selectedLocation.coordinates && (
+                        <span className="rounded-full bg-gray-100 px-3 py-1">
+                          {selectedLocation.coordinates.lat.toFixed(4)}, {selectedLocation.coordinates.lng.toFixed(4)}
+                        </span>
+                      )}
+                      <span className="rounded-full bg-gray-100 px-3 py-1">Map preview</span>
+                      <span className="rounded-full bg-gray-100 px-3 py-1">Farmer search</span>
+                    </div>
+                  </div>
                 </div>
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-xs text-gray-500">
-                    You stay on this page while the map preview loads. Use the link only if you want full Maps.
+                    You stay on this page while the map preview is shown. Use the link only if you want full Maps.
                   </p>
                   <Button asChild variant="outline" size="sm" className="gap-2">
                     <a href={mapUrl} target="_blank" rel="noreferrer">
