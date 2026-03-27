@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MapPin, Navigation, LayoutGrid, List, ExternalLink } from 'lucide-react';
+import { MapPin, Navigation, LayoutGrid, List } from 'lucide-react';
 import LocationSelector, { DEFAULT_LOCATION_OPTIONS, LocationOption } from '@/components/Location/LocationSelector';
 import DistanceFilter from '@/components/Location/DistanceFilter';
 import NearbyFarmers, { Farmer } from '@/components/Location/NearbyFarmers';
@@ -190,15 +190,6 @@ const LocationPage: React.FC = () => {
     window.setTimeout(() => setIsLoading(false), 600);
   };
 
-  const handleOpenMaps = () => {
-    if (!selectedLocation) {
-      setLocationError('Choose a location first.');
-      return;
-    }
-
-    openMaps(selectedLocation);
-  };
-
   const handleFarmerMessage = (farmerId: string) => {
     console.log('Message farmer:', farmerId);
   };
@@ -331,9 +322,6 @@ const LocationPage: React.FC = () => {
                           }
                         }}
                       />
-                      <Button onClick={() => void handleManualLocationSubmit()} disabled={!manualLocation.trim()}>
-                        Use
-                      </Button>
                     </div>
 
                     <div className="flex flex-wrap gap-2">
@@ -363,10 +351,6 @@ const LocationPage: React.FC = () => {
                           Selecting a location or using a manual search will open Google Maps for that place.
                         </p>
                       </div>
-                      <Button onClick={handleOpenMaps} disabled={!selectedLocation} className="gap-2 bg-green-600 hover:bg-green-700">
-                        <ExternalLink className="h-4 w-4" />
-                        Open selected location
-                      </Button>
                     </div>
                   </div>
                 </div>
