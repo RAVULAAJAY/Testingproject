@@ -132,12 +132,8 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           <X
             className={cn(
               'h-4 w-4 flex-shrink-0 opacity-50 transition-opacity',
-              value ? 'opacity-100 cursor-pointer hover:opacity-100' : 'opacity-0'
+              value ? 'opacity-100' : 'opacity-0'
             )}
-            onClick={(e) => {
-              e.stopPropagation();
-              onChange(null);
-            }}
           />
         </Button>
       </PopoverTrigger>
