@@ -57,23 +57,15 @@ const LocationPage: React.FC = () => {
   const handleLocationChange = (location: LocationOption | null) => {
     setLocationError('');
     const nextLocation = location ? (location.coordinates ? location : DEFAULT_LOCATION_OPTIONS.find((entry) => entry.city === location.city || entry.name === location.name) ?? location) : null;
+    setSelectedLocation(nextLocation);
+    setManualLocation(nextLocation?.city || nextLocation?.name || '');
 
     if (nextLocation) {
       const mapsWindow = window.open(buildMapsSearchUrl(nextLocation), '_blank', 'noopener,noreferrer');
       if (mapsWindow) {
         mapsWindow.opener = null;
       }
-
-      window.setTimeout(() => {
-        setSelectedLocation(null);
-        setManualLocation('');
-      }, 150);
-
-      return;
     }
-
-    setSelectedLocation(null);
-    setManualLocation('');
   };
 
   const handleManualSearch = () => {
@@ -97,9 +89,6 @@ const LocationPage: React.FC = () => {
     };
 
     handleLocationChange(nextLocation);
-    window.setTimeout(() => {
-      setLocationError('');
-    }, 200);
   };
 
   return (
@@ -123,7 +112,6 @@ const LocationPage: React.FC = () => {
               onChange={handleLocationChange}
               placeholder="Search or select location..."
               locations={DEFAULT_LOCATION_OPTIONS}
-              disabled
             />
             <div className="flex gap-2">
               <Input
