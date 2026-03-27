@@ -18,11 +18,26 @@ const buildMapsSearchUrl = (location: LocationOption) => {
 
 const normalizeLocationKey = (value: string) => value.trim().toLowerCase();
 
+const requestCurrentLocation = (): Promise<GeolocationPosition> => {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error('Geolocation is not supported in this browser.'));
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: true,
+      timeout: 10000,
+    });
+  });
+};
+
 const LocationPage: React.FC = () => {
   const { users } = useGlobalState();
   const [selectedLocation, setSelectedLocation] = useState<LocationOption | null>(null);
   const [manualLocation, setManualLocation] = useState('');
   const [locationError, setLocationError] = useState('');
+  const [isDetectingCurrentLocation, setIsDetectingCurrentLocation] = useState(false);
 
   const allFarmers = useMemo(() => {
     return users
@@ -90,6 +105,63 @@ const LocationPage: React.FC = () => {
     handleLocationChange(nextLocation);
   };
 
+  const handleUseCurrentLocation = async () => {
+    setIsDetectingCurrentLocation(true);
+    setLocationError('');
+
+    try {
+      const position = await requestCurrentLocation();
+      const latitude = position.coords.latitude.toFixed(6);
+      const longitude = position.coords.longitude.toFixed(6);
+
+      let resolvedCity = 'Current Location';
+      let resolvedState = 'Near you';
+
+      try {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`,
+          {
+            headers: {
+              Accept: 'application/json',
+            },
+          }
+        );
+
+        if (response.ok) {
+          const data = (await response.json()) as {
+            address?: { city?: string; town?: string; village?: string; state?: string; county?: string };
+            display_name?: string;
+          };
+
+          resolvedCity = data.address?.city || data.address?.town || data.address?.village || data.display_name?.split(',')[0] || resolvedCity;
+          resolvedState = data.address?.state || data.address?.county || resolvedState;
+          if (data.display_name) {
+            setManualLocation(data.display_name);
+          }
+        }
+      } catch {
+        setManualLocation(`${latitude}, ${longitude}`);
+      }
+
+      const currentLocation: LocationOption = {
+        id: 'current-location',
+        name: resolvedCity,
+        city: resolvedCity,
+        state: resolvedState,
+        coordinates: {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        },
+      };
+
+      handleLocationChange(currentLocation);
+    } catch {
+      setLocationError('Unable to detect your current location. Please allow location access and try again.');
+    } finally {
+      setIsDetectingCurrentLocation(false);
+    }
+  };
+
   return (
     <div className="space-y-6 pb-8">
       <div>
@@ -106,6 +178,10 @@ const LocationPage: React.FC = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
+            <Button onClick={handleUseCurrentLocation} className="w-full gap-2" disabled={isDetectingCurrentLocation}>
+              <Navigation className="h-4 w-4" />
+              {isDetectingCurrentLocation ? 'Detecting current location...' : 'Use My Current Location'}
+            </Button>
             <LocationSelector
               value={selectedLocation}
               onChange={handleLocationChange}
