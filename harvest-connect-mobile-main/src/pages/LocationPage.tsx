@@ -1,8 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MapPin, Navigation, LayoutGrid, List, ExternalLink, LocateFixed } from 'lucide-react';
+import { MapPin, Navigation, LayoutGrid, List, ExternalLink } from 'lucide-react';
 import LocationSelector, { DEFAULT_LOCATION_OPTIONS, LocationOption } from '@/components/Location/LocationSelector';
 import DistanceFilter from '@/components/Location/DistanceFilter';
 import NearbyFarmers, { Farmer } from '@/components/Location/NearbyFarmers';
@@ -21,33 +21,6 @@ const resolveLocationOption = (location: LocationOption): LocationOption => {
   const match = DEFAULT_LOCATION_OPTIONS.find((entry) => locationKey(entry) === locationKey(location));
 
   return match ? { ...match, id: location.id } : location;
-};
-
-const geocodeLocation = async (query: string): Promise<{ lat: number; lng: number } | null> => {
-  const response = await fetch(
-    `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(query)}`,
-    {
-      headers: {
-        Accept: 'application/json',
-      },
-    }
-  );
-
-  if (!response.ok) {
-    return null;
-  }
-
-  const results = (await response.json()) as Array<{ lat: string; lon: string }>;
-  const topResult = results[0];
-
-  if (!topResult) {
-    return null;
-  }
-
-  return {
-    lat: Number(topResult.lat),
-    lng: Number(topResult.lon),
-  };
 };
 
 const buildMapsSearchUrl = (location: Pick<LocationOption, 'name' | 'city' | 'state' | 'coordinates'>) => {
@@ -133,24 +106,6 @@ const LocationPage: React.FC = () => {
     return Array.from(collected.values());
   }, [allFarmers]);
 
-  // Get unique locations from farmers (those with location filled)
-  const availableLocations = useMemo(() => {
-    const farmersWithLocation = allFarmers.filter(f => f.location && f.location.trim());
-    
-    if (farmersWithLocation.length === 0) {
-      // If no farmers have location yet, provide empty array to let LocationSelector use defaults
-      return [];
-    }
-    
-    const locSet = new Set(farmersWithLocation.map(f => f.location).filter(Boolean));
-    return Array.from(locSet).map((city, idx) => ({
-      id: (idx + 1).toString(),
-      name: city,
-      city: city,
-      state: 'India'
-    }));
-  }, [allFarmers]);
-
   // Check if any farmers exist in system at all
   const hasFarmersInSystem = users.some(u => u.role === 'farmer');
 
@@ -181,42 +136,12 @@ const LocationPage: React.FC = () => {
     }).slice(0, 6);
   }, [locationCatalog]);
 
-  useEffect(() => {
-    if (!selectedLocation || selectedLocation.coordinates) {
-      return;
+  const openMaps = (location: LocationOption) => {
+    const mapsWindow = window.open(buildMapsSearchUrl(location), '_blank', 'noopener,noreferrer');
+    if (mapsWindow) {
+      mapsWindow.opener = null;
     }
-
-    let cancelled = false;
-
-    const resolveCoordinates = async () => {
-      const resolvedCoordinates = await geocodeLocation(selectedLocation.city || selectedLocation.name);
-
-      if (cancelled || !resolvedCoordinates) {
-        return;
-      }
-
-      setSelectedLocation((current) => {
-        if (!current || current.id !== selectedLocation.id) {
-          return current;
-        }
-
-        return {
-          ...current,
-          coordinates: resolvedCoordinates,
-        };
-      });
-    };
-
-    resolveCoordinates().catch(() => {
-      if (!cancelled) {
-        setLocationError('Unable to resolve that location on the map. Try a nearby city or one of the suggested locations.');
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedLocation]);
+  };
 
   const handleDistanceChange = (distance: number) => {
     setMaxDistance(distance);
@@ -228,32 +153,14 @@ const LocationPage: React.FC = () => {
 
   const handleLocationChange = (location: LocationOption | null) => {
     setLocationError('');
-    setSelectedLocation(location ? resolveLocationOption(location) : null);
+    const nextLocation = location ? resolveLocationOption(location) : null;
+    setSelectedLocation(nextLocation);
     setIsLoading(true);
+    if (nextLocation) {
+      openMaps(nextLocation);
+    }
     // Simulate loading
     setTimeout(() => setIsLoading(false), 600);
-  };
-
-  const handleManualLocationSearch = () => {
-    const trimmedLocation = manualLocation.trim();
-    if (!trimmedLocation) {
-      return;
-    }
-
-    const matchedLocation = locationCatalog.find((location) => {
-      const normalizedLocation = normalizeLocationKey(trimmedLocation);
-      return (
-        normalizeLocationKey(location.name) === normalizedLocation ||
-        normalizeLocationKey(location.city) === normalizedLocation
-      );
-    });
-
-    handleLocationChange(matchedLocation ?? {
-      id: `manual_${normalizeLocationKey(trimmedLocation).replace(/\s+/g, '_')}`,
-      name: trimmedLocation,
-      city: trimmedLocation,
-      state: 'India',
-    });
   };
 
   const handleManualLocationSubmit = async () => {
@@ -270,28 +177,26 @@ const LocationPage: React.FC = () => {
       return;
     }
 
+    const customLocation: LocationOption = {
+      id: `manual_${normalizeLocationKey(trimmedLocation).replace(/\s+/g, '_')}`,
+      name: trimmedLocation,
+      city: trimmedLocation,
+      state: 'India',
+    };
+
+    setSelectedLocation(customLocation);
+    openMaps(customLocation);
     setIsLoading(true);
+    window.setTimeout(() => setIsLoading(false), 600);
+  };
 
-    try {
-      const coordinates = await geocodeLocation(trimmedLocation);
-
-      if (!coordinates) {
-        setLocationError('We could not find that place on the map. Try a fuller city name like "Pune, Maharashtra".');
-        return;
-      }
-
-      handleLocationChange({
-        id: `manual_${normalizeLocationKey(trimmedLocation).replace(/\s+/g, '_')}`,
-        name: trimmedLocation,
-        city: trimmedLocation,
-        state: 'India',
-        coordinates,
-      });
-    } catch {
-      setLocationError('Map search failed. Please try again.');
-    } finally {
-      setIsLoading(false);
+  const handleOpenMaps = () => {
+    if (!selectedLocation) {
+      setLocationError('Choose a location first.');
+      return;
     }
+
+    openMaps(selectedLocation);
   };
 
   const handleFarmerMessage = (farmerId: string) => {
@@ -452,20 +357,15 @@ const LocationPage: React.FC = () => {
 
                   <div className="overflow-hidden rounded-xl border bg-white shadow-sm">
                     <div className="flex h-72 flex-col items-center justify-center gap-4 px-6 text-center">
-                      <div className="rounded-full bg-green-100 p-4 text-green-700">
-                        <LocateFixed className="h-7 w-7" />
-                      </div>
                       <div className="space-y-1">
-                        <p className="text-base font-semibold text-gray-900">Open the selected location in Google Maps</p>
+                        <p className="text-base font-semibold text-gray-900">Maps will open automatically</p>
                         <p className="text-sm text-gray-500">
-                          Search a city or enter one manually, then open the result in Maps for directions and live navigation.
+                          Selecting a location or using a manual search will open Google Maps for that place.
                         </p>
                       </div>
-                      <Button asChild disabled={!selectedLocation} className="gap-2 bg-green-600 hover:bg-green-700">
-                        <a href={mapUrl || '#'} target="_blank" rel="noreferrer">
-                          <ExternalLink className="h-4 w-4" />
-                          Open in Maps
-                        </a>
+                      <Button onClick={handleOpenMaps} disabled={!selectedLocation} className="gap-2 bg-green-600 hover:bg-green-700">
+                        <ExternalLink className="h-4 w-4" />
+                        Open selected location
                       </Button>
                     </div>
                   </div>
@@ -511,33 +411,6 @@ const LocationPage: React.FC = () => {
           {/* Farmers Display */}
           {selectedLocation && (
             <>
-              <Card className="overflow-hidden">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Navigation className="h-4 w-4 text-green-600" />
-                    Google Maps
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="flex flex-col items-start gap-3 rounded-xl border bg-gradient-to-br from-white to-green-50 p-5">
-                    <div>
-                      <p className="font-semibold text-gray-900">{selectedLocationLabel || selectedLocation.city}</p>
-                      <p className="text-sm text-gray-600">
-                        {selectedLocation.coordinates
-                          ? 'Coordinates resolved and ready to open in Maps.'
-                          : 'No coordinates stored yet. Open Maps will search the typed location directly.'}
-                      </p>
-                    </div>
-                    <Button asChild className="gap-2 bg-green-600 hover:bg-green-700">
-                      <a href={mapUrl} target="_blank" rel="noreferrer">
-                        <ExternalLink className="h-4 w-4" />
-                        Open in Google Maps
-                      </a>
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
               {viewMode === 'list' ? (
                 <NearbyFarmers
                   farmers={nearbyFarmers}
