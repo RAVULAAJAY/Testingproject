@@ -24,6 +24,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { User as UserType } from '@/context/AuthContext';
+import BrandLogo from '@/components/BrandLogo';
 
 interface SidebarProps {
   user: UserType;
@@ -127,8 +128,10 @@ const Sidebar: React.FC<SidebarProps> = ({
           {/* Header */}
           <div className="p-6 border-b border-gray-100 flex items-center justify-between group">
             <div className="flex items-center gap-3">
-              <div className="text-3xl transform group-hover:scale-110 transition-transform">🌾</div>
-              <span className="font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">FarmDirect</span>
+              <BrandLogo
+                imageClassName="h-9 w-9 transform transition-transform group-hover:scale-110"
+                textClassName="font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent"
+              />
             </div>
             <button
               onClick={() => onToggle && onToggle(false)}

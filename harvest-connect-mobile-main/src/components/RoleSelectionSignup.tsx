@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft } from 'lucide-react';
 import { UserRole } from '@/context/AuthContext';
+import BrandLogo from '@/components/BrandLogo';
 
 interface RoleSelectionSignupProps {
   onSelectRole: (role: UserRole) => void;
@@ -36,9 +37,11 @@ const RoleSelectionSignup: React.FC<RoleSelectionSignupProps> = ({ onSelectRole,
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <div className="mx-auto max-w-5xl rounded-[2.5rem] border border-white/80 bg-white/75 px-6 py-12 text-center shadow-[0_30px_90px_-35px_rgba(15,23,42,0.34)] backdrop-blur-2xl animate-fade-in-scale sm:px-10">
             <div className="mx-auto mb-6 h-px w-24 bg-gradient-to-r from-transparent via-emerald-400 to-transparent" />
-            <h1 className="text-5xl font-semibold tracking-tight text-slate-900 mb-4 sm:text-6xl">
-              🌾 Join FarmDirect
-            </h1>
+            <BrandLogo
+              className="justify-center mb-4"
+              imageClassName="h-10 w-10 sm:h-12 sm:w-12"
+              textClassName="text-5xl font-semibold tracking-tight text-slate-900 sm:text-6xl"
+            />
             <p className="mx-auto mb-6 max-w-3xl text-lg leading-8 text-slate-600 sm:text-xl">
               Create an account and start connecting directly with farmers or buyers.
             </p>

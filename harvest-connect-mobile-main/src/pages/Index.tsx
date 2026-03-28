@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { isProfileComplete, useAuth, UserRole, type User } from '@/context/AuthContext';
 import EnhancedAuthForm from '@/components/EnhancedAuthForm';
+import BrandLogo from '@/components/BrandLogo';
 import RoleSelection from '@/components/RoleSelection';
 import RoleSelectionSignup from '@/components/RoleSelectionSignup';
 
@@ -119,9 +120,11 @@ const Index = () => {
         <div className="space-y-8 lg:space-y-10">
           <div className="rounded-[2rem] border border-white/80 bg-white/86 px-6 py-12 text-center shadow-[0_28px_90px_-38px_rgba(15,23,42,0.28)] backdrop-blur-xl sm:px-10 lg:px-14 lg:py-14">
             <div className="mx-auto mb-6 h-px w-32 bg-gradient-to-r from-transparent via-emerald-500 via-sky-500 to-transparent" />
-            <h1 className="text-[clamp(2.75rem,6vw,4.75rem)] font-semibold tracking-tight text-slate-950">
-              🌾 FarmDirect
-            </h1>
+            <BrandLogo
+              className="justify-center gap-5 sm:gap-6"
+              imageClassName="h-28 w-28 sm:h-32 sm:w-32 md:h-36 md:w-36"
+              textClassName="text-[clamp(2.75rem,5.4vw,4.6rem)] leading-none"
+            />
             <p className="mx-auto mt-4 max-w-3xl text-[clamp(1rem,2vw,1.2rem)] leading-8 text-slate-600 sm:leading-9">
               Connecting farmers directly with buyers for fair prices and fresh produce, without middlemen.
             </p>

@@ -187,34 +187,61 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user }) => {
       const brandedGreen = '#15803d';
       const brandDark = '#0f172a';
       let cursorY = 18;
+      const brandLogo = await loadImageDataUrl('/favicon-v2.png');
 
+      pdf.setFillColor(16, 99, 47);
+      pdf.rect(0, 0, pageWidth, 38, 'F');
       pdf.setFillColor(21, 128, 61);
-      pdf.rect(0, 0, pageWidth, 30, 'F');
+      pdf.rect(0, 0, pageWidth, 9, 'F');
+      if (brandLogo) {
+        pdf.setFillColor(255, 255, 255);
+        pdf.roundedRect(margin, 8, 20, 20, 5, 5, 'F');
+        pdf.addImage(brandLogo, 'PNG', margin + 1.8, 9.8, 16.4, 16.4, undefined, 'FAST');
+      }
       pdf.setTextColor(255, 255, 255);
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(20);
-      pdf.text('FarmDirect', margin, 14);
+      pdf.text('FarmDirect', margin + 26, 16);
       pdf.setFont('helvetica', 'normal');
       pdf.setFontSize(10);
-      pdf.text('Personal data export and account history', margin, 22);
+      pdf.text('Personal data export and account history', margin + 26, 25);
+
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(11);
+      pdf.text('Account export', pageWidth - margin, 16, { align: 'right' });
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(9);
+      pdf.text('Secure snapshot of your profile and order history', pageWidth - margin, 25, { align: 'right' });
 
       pdf.setTextColor(15, 23, 42);
-      cursorY = 42;
+      cursorY = 50;
+
+      const drawSectionTitle = (title: string, y: number) => {
+        pdf.setFillColor(240, 253, 244);
+        pdf.setDrawColor(220, 252, 231);
+        pdf.roundedRect(margin, y - 4, contentWidth, 10, 3, 3, 'FD');
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(12);
+        pdf.setTextColor(21, 128, 61);
+        pdf.text(title, margin + 4, y + 2);
+      };
 
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(16);
-      pdf.text('Profile Summary', margin, cursorY);
-      cursorY += 6;
+      drawSectionTitle('Profile Summary', cursorY);
+      cursorY += 11;
 
       pdf.setDrawColor(226, 232, 240);
-      pdf.setFillColor(248, 250, 252);
+      pdf.setFillColor(250, 252, 255);
       const profileCardTop = cursorY;
       const profileCardHeight = user.role === 'farmer' && user.farmDetails ? 58 : 50;
-      pdf.roundedRect(margin, profileCardTop, contentWidth, profileCardHeight, 3, 3, 'FD');
+      pdf.roundedRect(margin, profileCardTop, contentWidth, profileCardHeight, 4, 4, 'FD');
 
       const profileImage = await loadImageDataUrl(user.profilePhoto ?? '');
       if (profileImage) {
-        pdf.addImage(profileImage, 'PNG', margin + 4, profileCardTop + 4, 28, 28, undefined, 'FAST');
+        pdf.setFillColor(255, 255, 255);
+        pdf.roundedRect(margin + 4, profileCardTop + 4, 30, 30, 3, 3, 'F');
+        pdf.addImage(profileImage, 'PNG', margin + 5, profileCardTop + 5, 28, 28, undefined, 'FAST');
       } else {
         pdf.setDrawColor(203, 213, 225);
         pdf.setFillColor(241, 245, 249);
@@ -242,7 +269,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user }) => {
       pdf.setTextColor(15, 23, 42);
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(11);
-      pdf.text(user.role === 'farmer' ? (user.farmName ?? `${user.name}'s Farm`) : 'Account Details', profileX, cursorY + 9);
+      pdf.text(user.role === 'farmer' ? (user.farmName ?? `${user.name}'s Farm`) : 'Account Details', profileX, cursorY + 10);
 
       pdf.setFont('helvetica', 'normal');
       pdf.setFontSize(10);
@@ -325,9 +352,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user }) => {
 
       if (user.role === 'farmer' && user.farmDetails) {
         pdf.setDrawColor(226, 232, 240);
-        pdf.setFillColor(248, 250, 252);
+        pdf.setFillColor(250, 252, 255);
         const bioCardHeight = Math.max(24, pdf.splitTextToSize(user.farmDetails, contentWidth - 8).length * 5 + 16);
-        pdf.roundedRect(margin, cursorY, contentWidth, bioCardHeight, 3, 3, 'FD');
+        pdf.roundedRect(margin, cursorY, contentWidth, bioCardHeight, 4, 4, 'FD');
 
         pdf.setFont('helvetica', 'bold');
         pdf.setFontSize(11);
@@ -344,10 +371,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user }) => {
       }
 
       pdf.setTextColor(15, 23, 42);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(16);
-      pdf.text('Order History', margin, cursorY);
-      cursorY += 4;
+      drawSectionTitle('Order History', cursorY);
+      cursorY += 11;
 
       if (userOrders.length === 0) {
         pdf.setFont('helvetica', 'normal');
@@ -385,6 +410,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user }) => {
             textColor: brandDark,
             lineColor: '#dbe4ee',
             lineWidth: 0.2,
+            cellPadding: 2.2,
           },
           headStyles: {
             fillColor: brandedGreen,

@@ -16,6 +16,7 @@ import {
 import { getAdminLoginEmail, hasAdminLoginCredentials, isAdminCredentialMatch } from '@/lib/adminAuth';
 import { UserRole, type User } from '@/context/AuthContext';
 import { useGlobalState } from '@/context/GlobalStateContext';
+import BrandLogo from '@/components/BrandLogo';
 
 interface EnhancedAuthFormProps {
   role: UserRole;
@@ -659,7 +660,11 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
             </Button>
 
             <div className="text-center pt-6">
-              <div className="text-5xl mb-3">{roleStyle.emoji}</div>
+              <BrandLogo
+                className="justify-center mb-3"
+                imageClassName="h-12 w-12"
+                textClassName="text-3xl font-semibold tracking-tight text-slate-900"
+              />
               <CardTitle className={`text-3xl ${roleStyle.titleClass}`}>
                 {effectiveMode === 'login' ? 'Welcome Back' : `Create ${roleStyle.label} Account`}
               </CardTitle>
