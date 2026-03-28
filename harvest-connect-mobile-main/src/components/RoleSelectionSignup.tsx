@@ -142,62 +142,6 @@ const RoleSelectionSignup: React.FC<RoleSelectionSignupProps> = ({ onSelectRole,
           </Card>
         </div>
 
-        {/* Admin Card (Optional) */}
-        <Card className="cursor-pointer transform hover:scale-105 transition-all duration-300 hover:shadow-xl border-2 hover:border-purple-400 overflow-hidden mb-8">
-          <div className="h-1 bg-gradient-to-r from-purple-400 to-purple-600"></div>
-          <CardHeader className="text-center pb-4">
-            <div className="text-6xl mb-4">🔐</div>
-            <CardTitle className="text-2xl text-purple-700">Administrator</CardTitle>
-            <CardDescription className="text-gray-600 text-base">
-              Platform administration and management
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="space-y-3">
-                <p className="text-sm font-semibold text-gray-700">Management Features:</p>
-                <ul className="space-y-2">
-                  <li className="flex items-start gap-2">
-                    <span className="text-purple-500">→</span>
-                    <span className="text-gray-600 text-sm">User management</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-purple-500">→</span>
-                    <span className="text-gray-600 text-sm">Platform analytics</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-purple-500">→</span>
-                    <span className="text-gray-600 text-sm">Listing approvals</span>
-                  </li>
-                </ul>
-              </div>
-              <div className="space-y-3">
-                <p className="text-sm font-semibold text-gray-700">Admin Capabilities:</p>
-                <ul className="space-y-2">
-                  <li className="flex items-start gap-2">
-                    <span className="text-purple-500">→</span>
-                    <span className="text-gray-600 text-sm">System configuration</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-purple-500">→</span>
-                    <span className="text-gray-600 text-sm">Platform monitoring</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-purple-500">→</span>
-                    <span className="text-gray-600 text-sm">User support</span>
-                  </li>
-                </ul>
-              </div>
-            </div>
-            <Button 
-              onClick={() => onSelectRole('admin')}
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white py-6 text-lg font-medium transition-all"
-            >
-              Admin Registration
-            </Button>
-          </CardContent>
-        </Card>
-
         {/* Features Section */}
         <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200">
           <CardHeader>

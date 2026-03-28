@@ -35,6 +35,7 @@ export interface FarmerOnboardingDetails {
   address: string;
   farmLocation: FarmerLocation;
   idProofFileName: string;
+  idProofDataUrl?: string;
   upiId?: string;
   ifscCode?: string;
   bankAccountNumber?: string;
@@ -47,6 +48,7 @@ export interface BuyerOnboardingDetails {
   locationCoordinates: FarmerLocation;
   profilePhotoFileName?: string;
   idProofFileName?: string;
+  idProofDataUrl?: string;
 }
 
 export interface User {
@@ -654,6 +656,10 @@ export const GlobalStateProvider: React.FC<{ children: ReactNode }> = ({
   }, [addActivityLog, setCurrentUser, upsertUser, users]);
 
   const signup = useCallback((user: User) => {
+    if (user.role === 'admin') {
+      return;
+    }
+
     const userWithTimestamp = {
       ...user,
       isActive: user.isActive ?? true,

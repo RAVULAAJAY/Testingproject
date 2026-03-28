@@ -96,6 +96,62 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user }) => {
     });
   };
 
+  const loadImageDimensions = (source: string) => {
+    return new Promise<{ width: number; height: number } | null>((resolve) => {
+      if (!source) {
+        resolve(null);
+        return;
+      }
+
+      const image = new window.Image();
+      image.crossOrigin = 'anonymous';
+      image.onload = () => {
+        resolve({
+          width: image.naturalWidth || image.width,
+          height: image.naturalHeight || image.height,
+        });
+      };
+      image.onerror = () => resolve(null);
+      image.src = source;
+    });
+  };
+
+  const addContainedImage = async (
+    pdfDoc: jsPDF,
+    source: string,
+    x: number,
+    y: number,
+    maxWidth: number,
+    maxHeight: number,
+  ) => {
+    const resolvedSource = await loadImageDataUrl(source);
+    if (!resolvedSource || !resolvedSource.startsWith('data:image/')) {
+      return false;
+    }
+
+    const dimensions = await loadImageDimensions(resolvedSource);
+    if (!dimensions || dimensions.width === 0 || dimensions.height === 0) {
+      return false;
+    }
+
+    const imageRatio = dimensions.width / dimensions.height;
+    const boxRatio = maxWidth / maxHeight;
+    let renderWidth = maxWidth;
+    let renderHeight = maxHeight;
+
+    if (imageRatio > boxRatio) {
+      renderHeight = maxWidth / imageRatio;
+    } else {
+      renderWidth = maxHeight * imageRatio;
+    }
+
+    const offsetX = x + (maxWidth - renderWidth) / 2;
+    const offsetY = y + (maxHeight - renderHeight) / 2;
+    const format = resolvedSource.startsWith('data:image/jpeg') ? 'JPEG' : 'PNG';
+    pdfDoc.addImage(resolvedSource, format, offsetX, offsetY, renderWidth, renderHeight, undefined, 'FAST');
+    return true;
+  };
+
   const drawWrappedRow = (
     pdfDoc: jsPDF,
     label: string,
@@ -200,6 +256,72 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user }) => {
       });
 
       cursorY = profileCardTop + profileCardHeight + 10;
+
+      if (user.role === 'farmer' && user.farmerOnboarding?.idProofDataUrl) {
+        const proofDataUrl = user.farmerOnboarding.idProofDataUrl;
+        const proofCardTop = cursorY;
+        const proofIsImage = proofDataUrl.startsWith('data:image/');
+        const proofCardHeight = proofIsImage ? 76 : 26;
+
+        pdf.setDrawColor(226, 232, 240);
+        pdf.setFillColor(248, 250, 252);
+        pdf.roundedRect(margin, proofCardTop, contentWidth, proofCardHeight, 3, 3, 'FD');
+
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(11);
+        pdf.setTextColor(15, 23, 42);
+        pdf.text('ID Proof', margin + 4, proofCardTop + 8);
+
+        if (proofIsImage) {
+          const proofDrawn = await addContainedImage(pdf, proofDataUrl, margin + 4, proofCardTop + 12, contentWidth - 8, 56);
+          if (!proofDrawn) {
+            pdf.setFont('helvetica', 'normal');
+            pdf.setFontSize(10);
+            pdf.setTextColor(71, 85, 105);
+            pdf.text(user.farmerOnboarding.idProofFileName || 'Uploaded proof file', margin + 4, proofCardTop + 18);
+          }
+        } else {
+          pdf.setFont('helvetica', 'normal');
+          pdf.setFontSize(10);
+          pdf.setTextColor(71, 85, 105);
+          pdf.text(user.farmerOnboarding.idProofFileName || 'Uploaded proof file', margin + 4, proofCardTop + 18);
+        }
+
+        cursorY = proofCardTop + proofCardHeight + 10;
+      }
+
+      if (user.role === 'buyer' && user.buyerOnboarding?.idProofDataUrl) {
+        const proofDataUrl = user.buyerOnboarding.idProofDataUrl;
+        const proofCardTop = cursorY;
+        const proofIsImage = proofDataUrl.startsWith('data:image/');
+        const proofCardHeight = proofIsImage ? 76 : 26;
+
+        pdf.setDrawColor(226, 232, 240);
+        pdf.setFillColor(248, 250, 252);
+        pdf.roundedRect(margin, proofCardTop, contentWidth, proofCardHeight, 3, 3, 'FD');
+
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(11);
+        pdf.setTextColor(15, 23, 42);
+        pdf.text('ID Proof', margin + 4, proofCardTop + 8);
+
+        if (proofIsImage) {
+          const proofDrawn = await addContainedImage(pdf, proofDataUrl, margin + 4, proofCardTop + 12, contentWidth - 8, 56);
+          if (!proofDrawn) {
+            pdf.setFont('helvetica', 'normal');
+            pdf.setFontSize(10);
+            pdf.setTextColor(71, 85, 105);
+            pdf.text(user.buyerOnboarding.idProofFileName || 'Uploaded proof file', margin + 4, proofCardTop + 18);
+          }
+        } else {
+          pdf.setFont('helvetica', 'normal');
+          pdf.setFontSize(10);
+          pdf.setTextColor(71, 85, 105);
+          pdf.text(user.buyerOnboarding.idProofFileName || 'Uploaded proof file', margin + 4, proofCardTop + 18);
+        }
+
+        cursorY = proofCardTop + proofCardHeight + 10;
+      }
 
       if (user.role === 'farmer' && user.farmDetails) {
         pdf.setDrawColor(226, 232, 240);

@@ -93,6 +93,15 @@ const RoleSelection: React.FC<RoleSelectionProps> = ({ onSelectRole, onBack }) =
               </CardHeader>
               
               <CardContent className="space-y-4">
+                {role.id === 'admin' && (
+                  <Button
+                    onClick={() => onSelectRole(role.id)}
+                    className="w-full bg-purple-600 hover:bg-purple-700 text-white py-4 text-base font-medium transition-all"
+                  >
+                    Admin Login
+                  </Button>
+                )}
+
                 <div className="space-y-2">
                   <p className="text-xs font-semibold text-gray-600 uppercase">Key Benefits:</p>
                   <ul className="space-y-2">
@@ -105,12 +114,14 @@ const RoleSelection: React.FC<RoleSelectionProps> = ({ onSelectRole, onBack }) =
                   </ul>
                 </div>
                 
-                <Button 
-                  onClick={() => onSelectRole(role.id)}
-                  className={`w-full bg-${role.color}-600 hover:bg-${role.color}-700 text-white py-6 text-lg font-medium transition-all`}
-                >
-                  Sign In as {role.label}
-                </Button>
+                {role.id !== 'admin' && (
+                  <Button 
+                    onClick={() => onSelectRole(role.id)}
+                    className={`w-full bg-${role.color}-600 hover:bg-${role.color}-700 text-white py-6 text-lg font-medium transition-all`}
+                  >
+                    Sign In as {role.label}
+                  </Button>
+                )}
               </CardContent>
             </Card>
           ))}

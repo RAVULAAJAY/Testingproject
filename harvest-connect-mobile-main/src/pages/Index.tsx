@@ -148,6 +148,17 @@ const Index = () => {
             >
               Sign In
             </Button>
+            <Button
+              onClick={() => {
+                setSelectedRole('admin');
+                setAuthMode('login');
+                setViewState('auth-form');
+              }}
+              variant="outline"
+              className="px-8 py-3 text-lg font-medium border-purple-300 text-purple-700 hover:border-purple-400 hover:bg-purple-50 h-auto"
+            >
+              Admin Login
+            </Button>
           </div>
         </div>
 

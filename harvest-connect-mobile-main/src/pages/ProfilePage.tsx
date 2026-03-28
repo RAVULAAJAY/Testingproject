@@ -110,6 +110,11 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, requireCompletion = fal
     };
   }, [favoriteProductIds.length, getOrderCountByBuyer, getTotalSpentByBuyer, user.id, user.role]);
 
+  const farmerProofDataUrl = user.role === 'farmer' ? user.farmerOnboarding?.idProofDataUrl ?? '' : '';
+  const farmerProofFileName = user.role === 'farmer' ? user.farmerOnboarding?.idProofFileName ?? 'ID proof' : '';
+  const buyerProofDataUrl = user.role === 'buyer' ? user.buyerOnboarding?.idProofDataUrl ?? '' : '';
+  const buyerProofFileName = user.role === 'buyer' ? user.buyerOnboarding?.idProofFileName ?? 'ID proof' : '';
+
   const getRoleEmoji = (role: string) => {
     switch(role) {
       case 'farmer': return '🧑‍🌾';
@@ -393,6 +398,31 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, requireCompletion = fal
                   placeholder="Tell buyers about your farm, practices, and produce quality."
                 />
               </div>
+              <div className="space-y-2">
+                <Label>ID Proof</Label>
+                <div className="rounded-lg border bg-gray-50 p-4">
+                  {farmerProofDataUrl ? (
+                    farmerProofDataUrl.startsWith('data:image/') ? (
+                      <img
+                        src={farmerProofDataUrl}
+                        alt="Uploaded ID proof"
+                        className="h-56 w-full rounded-md object-contain bg-white"
+                      />
+                    ) : farmerProofDataUrl.startsWith('data:application/pdf') ? (
+                      <iframe
+                        title="Uploaded ID proof"
+                        src={farmerProofDataUrl}
+                        className="h-56 w-full rounded-md bg-white"
+                      />
+                    ) : (
+                      <p className="text-sm text-gray-600">Uploaded proof is available, but this format cannot be previewed here.</p>
+                    )
+                  ) : (
+                    <p className="text-sm text-gray-600">No proof uploaded yet.</p>
+                  )}
+                  <p className="mt-3 text-sm font-medium text-gray-900">{farmerProofFileName}</p>
+                </div>
+              </div>
             </>
           ) : (
             <div className="space-y-3 text-gray-700">
@@ -419,6 +449,31 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, requireCompletion = fal
                   <p className="font-medium text-gray-900">
                     {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Not available'}
                   </p>
+                </div>
+              </div>
+              <div className="space-y-2 pt-2">
+                <Label>ID Proof</Label>
+                <div className="rounded-lg border bg-gray-50 p-4">
+                  {buyerProofDataUrl ? (
+                    buyerProofDataUrl.startsWith('data:image/') ? (
+                      <img
+                        src={buyerProofDataUrl}
+                        alt="Uploaded ID proof"
+                        className="h-56 w-full rounded-md object-contain bg-white"
+                      />
+                    ) : buyerProofDataUrl.startsWith('data:application/pdf') ? (
+                      <iframe
+                        title="Uploaded ID proof"
+                        src={buyerProofDataUrl}
+                        className="h-56 w-full rounded-md bg-white"
+                      />
+                    ) : (
+                      <p className="text-sm text-gray-600">Uploaded proof is available, but this format cannot be previewed here.</p>
+                    )
+                  ) : (
+                    <p className="text-sm text-gray-600">No proof uploaded yet.</p>
+                  )}
+                  <p className="mt-3 text-sm font-medium text-gray-900">{buyerProofFileName}</p>
                 </div>
               </div>
             </div>

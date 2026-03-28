@@ -37,6 +37,9 @@ const FarmerProfileSection: React.FC<FarmerProfileSectionProps> = ({
     };
   }, [orders, products, user.createdAt, user.id]);
 
+  const farmerProofDataUrl = user.farmerOnboarding?.idProofDataUrl ?? '';
+  const farmerProofFileName = user.farmerOnboarding?.idProofFileName ?? 'ID proof';
+
   return (
     <Card>
       <CardContent className="pt-6">
@@ -113,6 +116,33 @@ const FarmerProfileSection: React.FC<FarmerProfileSectionProps> = ({
             <p className="text-gray-700">
               {user.farmDetails || 'Add your farm details in Profile or Settings to help buyers trust your produce and practices.'}
             </p>
+          </div>
+
+          {/* ID Proof */}
+          <div className="border-t pt-4">
+            <h3 className="font-semibold text-gray-900 mb-3">ID Proof</h3>
+            <div className="rounded-lg border bg-gray-50 p-4 space-y-3">
+              {farmerProofDataUrl ? (
+                farmerProofDataUrl.startsWith('data:image/') ? (
+                  <img
+                    src={farmerProofDataUrl}
+                    alt="Uploaded ID proof"
+                    className="h-56 w-full rounded-md object-contain bg-white"
+                  />
+                ) : farmerProofDataUrl.startsWith('data:application/pdf') ? (
+                  <iframe
+                    title="Uploaded ID proof"
+                    src={farmerProofDataUrl}
+                    className="h-56 w-full rounded-md bg-white"
+                  />
+                ) : (
+                  <p className="text-sm text-gray-600">Uploaded proof is available, but this format cannot be previewed here.</p>
+                )
+              ) : (
+                <p className="text-sm text-gray-600">No proof uploaded yet.</p>
+              )}
+              <p className="text-sm font-medium text-gray-900">{farmerProofFileName}</p>
+            </div>
           </div>
 
           {/* Certifications */}

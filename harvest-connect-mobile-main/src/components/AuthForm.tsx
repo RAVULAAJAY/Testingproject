@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft } from 'lucide-react';
 import type { User } from '@/context/AuthContext';
+import { getAdminLoginEmail, hasAdminLoginCredentials, isAdminCredentialMatch } from '@/lib/adminAuth';
 
 interface AuthFormProps {
   role: 'farmer' | 'buyer' | 'admin';
@@ -26,6 +27,30 @@ const AuthForm: React.FC<AuthFormProps> = ({ role, mode, onSuccess, onBack, onMo
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (role === 'admin') {
+      if (!hasAdminLoginCredentials()) {
+        return;
+      }
+
+      if (!isAdminCredentialMatch(formData.email, formData.password)) {
+        return;
+      }
+
+      const adminUser = {
+        id: 'admin_primary',
+        name: 'Platform Admin',
+        email: getAdminLoginEmail(),
+        phone: '',
+        location: 'HQ',
+        role: 'admin',
+      } as User;
+
+      localStorage.setItem('currentUser', JSON.stringify(adminUser));
+      onSuccess(adminUser);
+      return;
+    }
+
     // Simulate authentication - in real app this would connect to Firebase
     const user = {
       id: role === 'farmer' ? '1' : role === 'buyer' ? '2' : 'admin',
@@ -43,6 +68,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ role, mode, onSuccess, onBack, onMo
 
   const roleEmoji = role === 'farmer' ? '🧑‍🌾' : role === 'buyer' ? '🧑‍💼' : '🔐';
   const roleColor = role === 'farmer' ? 'green' : role === 'buyer' ? 'blue' : 'purple';
+  const effectiveMode = role === 'admin' ? 'login' : mode;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 flex items-center justify-center p-4">
@@ -70,7 +96,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ role, mode, onSuccess, onBack, onMo
         
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {mode === 'signup' && (
+            {effectiveMode === 'signup' && (
               <div className="space-y-2">
                 <Label htmlFor="name">Full Name</Label>
                 <Input
@@ -108,7 +134,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ role, mode, onSuccess, onBack, onMo
               />
             </div>
             
-            {mode === 'signup' && (
+            {effectiveMode === 'signup' && (
               <>
                 <div className="space-y-2">
                   <Label htmlFor="phone">Phone Number</Label>
@@ -140,22 +166,24 @@ const AuthForm: React.FC<AuthFormProps> = ({ role, mode, onSuccess, onBack, onMo
               type="submit" 
               className={`w-full bg-${roleColor}-600 hover:bg-${roleColor}-700 text-white py-3`}
             >
-              {mode === 'login' ? 'Sign In' : 'Create Account'}
+              {effectiveMode === 'login' ? 'Sign In' : 'Create Account'}
             </Button>
           </form>
-          
-          <div className="text-center mt-6">
-            <p className="text-sm text-gray-600">
-              {mode === 'login' ? "Don't have an account?" : "Already have an account?"}
-            </p>
-            <Button
-              variant="link"
-              onClick={() => onModeChange(mode === 'login' ? 'signup' : 'login')}
-              className={`text-${roleColor}-600 p-0`}
-            >
-              {mode === 'login' ? 'Sign up' : 'Sign in'}
-            </Button>
-          </div>
+
+          {role !== 'admin' && (
+            <div className="text-center mt-6">
+              <p className="text-sm text-gray-600">
+                {mode === 'login' ? "Don't have an account?" : "Already have an account?"}
+              </p>
+              <Button
+                variant="link"
+                onClick={() => onModeChange(mode === 'login' ? 'signup' : 'login')}
+                className={`text-${roleColor}-600 p-0`}
+              >
+                {mode === 'login' ? 'Sign up' : 'Sign in'}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -77,26 +77,26 @@ const BuyerDashboardPage: React.FC = () => {
                 {currentUser.location}
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-2 lg:grid-cols-4">
-              <Button className="bg-white text-blue-700 hover:bg-blue-50" onClick={() => navigate('/browse')}>
-                <Compass className="mr-2 h-4 w-4" />
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+              <Button className="h-full min-h-[92px] w-full flex-col gap-2 whitespace-normal bg-white px-4 py-4 text-center text-blue-700 hover:bg-blue-50" onClick={() => navigate('/browse')}>
+                <Compass className="h-5 w-5" />
                 Explore
               </Button>
-              <Button className="bg-white text-blue-700 hover:bg-blue-50" onClick={() => navigate('/orders')}>
-                <Truck className="mr-2 h-4 w-4" />
+              <Button className="h-full min-h-[92px] w-full flex-col gap-2 whitespace-normal bg-white px-4 py-4 text-center text-blue-700 hover:bg-blue-50" onClick={() => navigate('/orders')}>
+                <Truck className="h-5 w-5" />
                 Orders
               </Button>
-              <Button className="bg-white text-blue-700 hover:bg-blue-50" onClick={() => navigate('/messages')}>
-                <MessageSquare className="mr-2 h-4 w-4" />
+              <Button className="h-full min-h-[92px] w-full flex-col gap-2 whitespace-normal bg-white px-4 py-4 text-center text-blue-700 hover:bg-blue-50" onClick={() => navigate('/messages')}>
+                <MessageSquare className="h-5 w-5" />
                 Chat
               </Button>
-              <Button className="bg-white text-blue-700 hover:bg-blue-50" onClick={() => navigate('/notifications')}>
-                <Bell className="mr-2 h-4 w-4" />
+              <Button className="h-full min-h-[92px] w-full flex-col gap-2 whitespace-normal bg-white px-4 py-4 text-center text-blue-700 hover:bg-blue-50" onClick={() => navigate('/notifications')}>
+                <Bell className="h-5 w-5" />
                 Alerts
               </Button>
-              <Button className="bg-white text-blue-700 hover:bg-blue-50" onClick={() => navigate('/ratings')}>
-                <Star className="mr-2 h-4 w-4" />
-                Ratings & Reviews
+              <Button className="h-full min-h-[92px] w-full flex-col gap-2 whitespace-normal bg-white px-4 py-4 text-center leading-tight text-blue-700 hover:bg-blue-50 col-span-2 sm:col-span-1 xl:col-span-1" onClick={() => navigate('/ratings')}>
+                <Star className="h-5 w-5" />
+                <span className="max-w-[110px] text-center">Ratings & Reviews</span>
               </Button>
             </div>
           </div>

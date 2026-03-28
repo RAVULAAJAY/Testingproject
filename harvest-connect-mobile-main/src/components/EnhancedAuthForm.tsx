@@ -13,6 +13,7 @@ import {
   getPasswordStrengthLabel,
   ValidationError,
 } from '@/lib/validation';
+import { getAdminLoginEmail, hasAdminLoginCredentials, isAdminCredentialMatch } from '@/lib/adminAuth';
 import { UserRole, type User } from '@/context/AuthContext';
 import { useGlobalState } from '@/context/GlobalStateContext';
 
@@ -91,8 +92,10 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
   const [isLocatingBuyer, setIsLocatingBuyer] = useState(false);
   const [idProofFileName, setIdProofFileName] = useState('');
   const [idProofFileSize, setIdProofFileSize] = useState(0);
+  const [idProofDataUrl, setIdProofDataUrl] = useState('');
   const [buyerIdProofFileName, setBuyerIdProofFileName] = useState('');
   const [buyerIdProofFileSize, setBuyerIdProofFileSize] = useState(0);
+  const [buyerIdProofDataUrl, setBuyerIdProofDataUrl] = useState('');
   const [farmerPhotoName, setFarmerPhotoName] = useState('');
   const [farmerProfilePhoto, setFarmerProfilePhoto] = useState('');
   const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -103,12 +106,13 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
   const cameraStreamRef = useRef<MediaStream | null>(null);
 
   const roleStyle = roleStyles[role];
-  const isFarmerSignup = role === 'farmer' && mode === 'signup';
-  const isBuyerSignup = role === 'buyer' && mode === 'signup';
-  const containerWidthClass = mode === 'login' ? 'max-w-2xl' : isFarmerSignup ? 'max-w-5xl' : 'max-w-4xl';
-  const compactFieldGroupClass = mode === 'login' ? 'grid grid-cols-1 gap-4' : 'grid grid-cols-1 md:grid-cols-2 gap-4';
+  const effectiveMode = role === 'admin' ? 'login' : mode;
+  const isFarmerSignup = role === 'farmer' && effectiveMode === 'signup';
+  const isBuyerSignup = role === 'buyer' && effectiveMode === 'signup';
+  const containerWidthClass = effectiveMode === 'login' ? 'max-w-2xl' : isFarmerSignup ? 'max-w-5xl' : 'max-w-4xl';
+  const compactFieldGroupClass = effectiveMode === 'login' ? 'grid grid-cols-1 gap-4' : 'grid grid-cols-1 md:grid-cols-2 gap-4';
 
-  const passwordStrength = mode === 'signup' ? getPasswordStrengthLabel(formData.password) : null;
+  const passwordStrength = effectiveMode === 'signup' ? getPasswordStrengthLabel(formData.password) : null;
 
   const mapPreviewSrc = useMemo(() => {
     const lat = Number(formData.farmLatitude);
@@ -344,13 +348,18 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
     }
   };
 
-  const handleUploadIdProof = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUploadIdProof = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
 
     if (!file) {
       return;
     }
 
+    try {
+      setIdProofDataUrl(await readFileAsDataUrl(file));
+    } catch {
+      setIdProofDataUrl('');
+    }
     setIdProofFileName(file.name);
     setIdProofFileSize(file.size);
 
@@ -359,13 +368,18 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
     }
   };
 
-  const handleBuyerIdProofUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleBuyerIdProofUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
 
     if (!file) {
       return;
     }
 
+    try {
+      setBuyerIdProofDataUrl(await readFileAsDataUrl(file));
+    } catch {
+      setBuyerIdProofDataUrl('');
+    }
     setBuyerIdProofFileName(file.name);
     setBuyerIdProofFileSize(file.size);
 
@@ -412,9 +426,41 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
     setGeneralError('');
     setFieldErrors({});
 
+    const submitMode = role === 'admin' ? 'login' : mode;
+
+    if (role === 'admin') {
+      if (!hasAdminLoginCredentials()) {
+        setGeneralError('Admin access is not configured on this device.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (!isAdminCredentialMatch(formData.email, formData.password)) {
+        setGeneralError('Invalid admin credentials.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      const adminUser: User = {
+        id: 'admin_primary',
+        name: 'Platform Admin',
+        email: getAdminLoginEmail(),
+        phone: '',
+        location: 'HQ',
+        role: 'admin',
+        isActive: true,
+        loginCount: 1,
+        createdAt: new Date().toISOString(),
+      };
+
+      onSuccess(adminUser);
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
       const validationResult =
-        mode === 'signup'
+        submitMode === 'signup'
           ? isFarmerSignup
             ? validateFarmerSignupForm({
                 name: formData.name,
@@ -503,34 +549,34 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
         (entry) => entry.email.trim().toLowerCase() === normalizedEmail && entry.role === role
       );
 
-      if (mode === 'login' && !existingUser) {
+      if (submitMode === 'login' && !existingUser) {
         setGeneralError('No account found for this role. Please sign up first.');
         setIsSubmitting(false);
         return;
       }
 
-      if (mode === 'signup' && existingUser) {
+      if (submitMode === 'signup' && existingUser) {
         setGeneralError('An account with this email already exists for this role. Please sign in.');
         setIsSubmitting(false);
         return;
       }
 
-      if (mode === 'login' && existingUser && existingUser.isActive === false) {
+      if (submitMode === 'login' && existingUser && existingUser.isActive === false) {
         setGeneralError('Your account is disabled by admin. Please contact support.');
         setIsSubmitting(false);
         return;
       }
 
       const user: User =
-        mode === 'login' && existingUser
+        submitMode === 'login' && existingUser
           ? existingUser
           : {
               id: existingUser?.id ?? `${role}_${Date.now()}`,
-              name: mode === 'signup' ? formData.name.trim() : existingUser?.name ?? formData.email.split('@')[0],
+              name: submitMode === 'signup' ? formData.name.trim() : existingUser?.name ?? formData.email.split('@')[0],
               email: normalizedEmail,
-              phone: mode === 'signup' ? formData.phone.trim() : existingUser?.phone ?? '',
+              phone: submitMode === 'signup' ? formData.phone.trim() : existingUser?.phone ?? '',
               location:
-                mode === 'signup'
+                submitMode === 'signup'
                   ? (isFarmerSignup ? formData.address.trim() : formData.location.trim())
                   : existingUser?.location ?? '',
               role,
@@ -560,7 +606,7 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
                   ? `Farm at ${formData.address.trim()} | Coordinates ${formData.farmLatitude}, ${formData.farmLongitude}`
                   : existingUser?.farmDetails,
               farmerOnboarding:
-                role === 'farmer' && mode === 'signup'
+                role === 'farmer' && submitMode === 'signup'
                   ? {
                       address: formData.address.trim(),
                       farmLocation: {
@@ -568,6 +614,7 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
                         longitude: Number(formData.farmLongitude),
                       },
                       idProofFileName,
+                      idProofDataUrl: idProofDataUrl || undefined,
                       upiId: formData.upiId.trim() || undefined,
                       ifscCode: formData.ifscCode.trim() || undefined,
                       bankAccountNumber: formData.accountNumber.trim() || undefined,
@@ -576,7 +623,7 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
                     }
                   : existingUser?.farmerOnboarding,
               buyerOnboarding:
-                role === 'buyer' && mode === 'signup'
+                role === 'buyer' && submitMode === 'signup'
                   ? {
                       location: formData.location.trim(),
                       locationCoordinates: {
@@ -585,6 +632,7 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
                       },
                       profilePhotoFileName: farmerPhotoName || undefined,
                       idProofFileName: buyerIdProofFileName || undefined,
+                      idProofDataUrl: buyerIdProofDataUrl || undefined,
                     }
                   : existingUser?.buyerOnboarding,
               createdAt: existingUser?.createdAt ?? new Date().toISOString(),
@@ -613,10 +661,10 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
             <div className="text-center pt-6">
               <div className="text-5xl mb-3">{roleStyle.emoji}</div>
               <CardTitle className={`text-3xl ${roleStyle.titleClass}`}>
-                {mode === 'login' ? 'Welcome Back' : `Create ${roleStyle.label} Account`}
+                {effectiveMode === 'login' ? 'Welcome Back' : `Create ${roleStyle.label} Account`}
               </CardTitle>
               <CardDescription className="mt-2 text-base">
-                {mode === 'login'
+                {effectiveMode === 'login'
                   ? `Sign in to your ${roleStyle.label.toLowerCase()} account`
                   : isFarmerSignup
                   ? 'Complete verified onboarding to access your farmer dashboard'
@@ -634,7 +682,7 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
                 </div>
               )}
 
-              {mode === 'signup' && (
+              {effectiveMode === 'signup' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="name">Full Name</Label>
@@ -665,7 +713,7 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
                 </div>
               )}
 
-              {mode === 'login' && (
+              {effectiveMode === 'login' && (
                 <div className="grid grid-cols-1 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
@@ -693,7 +741,7 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
                       type={showPassword ? 'text' : 'password'}
                       value={formData.password}
                       onChange={(e) => updateField('password', e.target.value)}
-                      placeholder={mode === 'signup' ? 'Create a strong password' : 'Enter your password'}
+                      placeholder={effectiveMode === 'signup' ? 'Create a strong password' : 'Enter your password'}
                       className={`pr-10 ${fieldErrors.password ? 'border-red-500' : ''}`}
                     />
                     <button
@@ -707,7 +755,7 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
                   {fieldErrors.password && <p className="text-sm text-red-600">{fieldErrors.password}</p>}
                 </div>
 
-                {mode === 'signup' && (
+                {effectiveMode === 'signup' && (
                   <div className="space-y-2">
                     <Label htmlFor="confirmPassword">Confirm Password</Label>
                     <div className="relative">
@@ -735,7 +783,7 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
                 )}
               </div>
 
-              {mode === 'signup' && passwordStrength && (
+              {effectiveMode === 'signup' && passwordStrength && (
                 <div className="rounded-lg border bg-white p-4">
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-sm text-gray-600">Password Strength</p>
@@ -752,7 +800,7 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
                 </div>
               )}
 
-              {mode === 'signup' && !isFarmerSignup && !isBuyerSignup && (
+              {effectiveMode === 'signup' && !isFarmerSignup && !isBuyerSignup && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="phone">Phone Number</Label>
@@ -1230,10 +1278,10 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
                 className={`w-full text-white ${roleStyle.buttonClass}`}
               >
                 {isSubmitting
-                  ? mode === 'login'
+                  ? effectiveMode === 'login'
                     ? 'Signing in...'
                     : 'Creating account...'
-                  : mode === 'login'
+                  : effectiveMode === 'login'
                   ? 'Sign In'
                   : 'Create Account'}
               </Button>
@@ -1278,22 +1326,24 @@ const EnhancedAuthForm: React.FC<EnhancedAuthFormProps> = ({ role, mode, onSucce
               </div>
             )}
 
-            <div className="text-center mt-6 pt-6 border-t">
-              <p className="text-sm text-gray-600 mb-2">
-                {mode === 'login' ? "Don't have an account?" : 'Already have an account?'}
-              </p>
-              <Button
-                variant="link"
-                onClick={() => {
-                  onModeChange(mode === 'login' ? 'signup' : 'login');
-                  setFieldErrors({});
-                  setGeneralError('');
-                }}
-                className={roleStyle.linkClass}
-              >
-                {mode === 'login' ? 'Create account' : 'Sign in instead'}
-              </Button>
-            </div>
+            {role !== 'admin' && (
+              <div className="text-center mt-6 pt-6 border-t">
+                <p className="text-sm text-gray-600 mb-2">
+                  {mode === 'login' ? "Don't have an account?" : 'Already have an account?'}
+                </p>
+                <Button
+                  variant="link"
+                  onClick={() => {
+                    onModeChange(mode === 'login' ? 'signup' : 'login');
+                    setFieldErrors({});
+                    setGeneralError('');
+                  }}
+                  className={roleStyle.linkClass}
+                >
+                  {mode === 'login' ? 'Create account' : 'Sign in instead'}
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
